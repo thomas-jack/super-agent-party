@@ -443,6 +443,10 @@ let vue_data = {
     currentTranscriptionId: null,
     speechStartTime: null,
     recognition: null,
+    sherpaModelExists: false,             // 模型是否已存在
+    sherpaDownloading: false,             // 是否正在下载
+    sherpaPercent: 0,                     // 实时进度 0-100
+    sherpaEventSource: null,               // 当前 SSE 实例
     asrSettings: {
       enabled: false,
       engine: 'webSpeech',

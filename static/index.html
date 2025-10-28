@@ -4062,6 +4062,51 @@ if ('serviceWorker' in navigator) {
                       </el-form-item>
                     </div>
                   </div>
+                  <div class="tool-item" v-show="asrSettings.engine === 'sherpa'">
+                    <h3 v-if="sherpaModelExists" style="text-align:center;">
+                      {{t('modelExist')}}
+                    </h3>
+                    <el-form-item class="form-item-align">
+                    <el-button
+                      type="primary"
+                      :disabled="sherpaModelExists || sherpaDownloading"
+                      class="add-server-btn"
+                      :loading="sherpaDownloading && source==='modelscope'"
+                      @click="sherpaDownload('modelscope')"
+                    >{{t('downloadFromModelScope')}}</el-button>
+                    </el-form-item>
+                    <el-form-item class="form-item-align">
+                    <el-button
+                      type="primary"
+                      class="add-server-btn"
+                      :disabled="sherpaModelExists || sherpaDownloading"
+                      :loading="sherpaDownloading && source==='huggingface'"
+                      @click="sherpaDownload('huggingface')"
+                    >{{t('downloadFromHuggingFace')}}</el-button>
+                    </el-form-item>
+
+                    <el-progress
+                      v-if="sherpaDownloading"
+                      :percentage="sherpaPercent"
+                      style="margin-top:12px"
+                      :stroke-width="10"
+                    ></el-progress>
+
+                    <div v-if="sherpaModelExists">
+                      <el-form-item class="form-item-align">
+                        <el-button type="danger" class="add-server-btn" @click="sherpaRemove">{{t('deleteModel')}}</el-button>
+                      </el-form-item>
+                      <el-form-item class="form-item-align">
+                        <el-button
+                          type="info"
+                          class="add-server-btn"
+                          :disabled="sherpaDownloading"
+                          @click="sherpaReDownload"
+                        >{{t('Re-download')}}</el-button>
+                      </el-form-item>
+                    </div>
+                  </div>
+
                   <div class="tool-item" v-show="asrSettings.engine === 'webSpeech'">
                     <div class="tool-header">
                       <div class="header-left">

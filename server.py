@@ -6453,6 +6453,9 @@ from py.extensions import router as extensions_router
 
 app.include_router(extensions_router)
 
+from py.sherpa_model_manager import router as sherpa_model_router
+app.include_router(sherpa_model_router)
+
 mcp = FastApiMCP(
     app,
     name="Agent party MCP - chat with multiple agents",
