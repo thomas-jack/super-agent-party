@@ -643,10 +643,10 @@ async def dispatch_tool(tool_name: str, tool_params: dict,settings: dict) -> str
 class ChatRequest(BaseModel):
     messages: List[Dict]
     model: str = None
-    temperature: float = 0.7
     tools: dict = None
     stream: bool = False
-    max_tokens: int = None
+    temperature: Optional[float] = None   # 可空
+    max_tokens: Optional[int] = None      # 可空
     top_p: float = 1
     fileLinks: List[str] = None
     enable_thinking: bool = False
