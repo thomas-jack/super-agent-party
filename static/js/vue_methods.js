@@ -1866,9 +1866,10 @@ let vue_methods = {
         if (this.messages.length > 0) {
           const lastMessage = this.messages[this.messages.length - 1];
           if (lastMessage.role === 'assistant') {
+            let end_token = '<div class="highlight-block">'+this.t('message.stopGenerate') + '</div>';
             // 可选：添加截断标记
-            if (lastMessage.content && !lastMessage.content.endsWith(this.t('message.stopGenerate'))) {
-              lastMessage.content += '\n\n'+this.t('message.stopGenerate');
+            if (lastMessage.content && !lastMessage.content.endsWith(end_token)) {
+              lastMessage.content += '\n\n'+end_token;
             }
           }
         }
