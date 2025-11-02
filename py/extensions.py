@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 import httpx
-from fastapi import APIRouter, HTTPException,BackgroundTasks
+from fastapi import APIRouter, HTTPException,BackgroundTasks, Response, Request
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -391,3 +391,66 @@ async def update_extension(ext_id: str):
         status_code=500,
         detail=f"主/备仓库均更新失败：{last_err and last_err.stderr}"
     )
+
+from py.node_runner import node_mgr
+from aiohttp import ClientSession
+import aiohttp
+
+http_sess: ClientSession | None = None
+
+@router.on_event("startup")
+async def startup():
+    global http_sess
+    http_sess = ClientSession()
+
+@router.on_event("shutdown")
+async def shutdown():
+    await http_sess.close()
+    for ext_id in list(node_mgr.exts.keys()):
+        await node_mgr.stop(ext_id)
+
+# 1. 启动扩展（幂等）
+@router.post("/{ext_id}/start-node")
+async def start_node(ext_id: str):
+    """
+    1. 没 index.js  -> 返回 mode='static'，前端收到后用旧路由
+    2. 启动失败   -> 同上（回退）
+    3. 启动成功   -> 返回 mode='node' + port
+    """
+    ext_dir = Path(EXT_DIR) / ext_id
+    node_entry = ext_dir / "index.js"
+    if not node_entry.exists():
+        print(f"扩展 {ext_id} 没有入口文件，回退静态")
+        return {"mode": "static"}          # ① 直接告诉前端用静态
+
+    try:
+        port = await node_mgr.start(ext_id)
+        return {"mode": "node", "port": port}
+    except Exception as e:
+        print(f"Node 启动失败，回退静态：{str(e)}")
+        return {"mode": "static"}          # ② 启动失败也回退
+
+# 2. 停止扩展
+@router.post("/{ext_id}/stop-node")
+async def stop_node(ext_id: str):
+    await node_mgr.stop(ext_id)
+    return {"status": "stopped"}
+
+# 3. 反向代理  /api/extensions/{ext_id}/node/*
+@router.api_route("/{ext_id}/node/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy(ext_id: str, path: str, request: Request):
+    if ext_id not in node_mgr.exts:
+        raise HTTPException(404, "扩展未启动")
+    port = node_mgr.exts[ext_id].port
+    url = f"http://127.0.0.1:{port}/{path}"
+    # 把原始请求方法、body、query、header 都透传
+    body = await request.body()
+    async with http_sess.request(
+        method=request.method,
+        url=url,
+        params=request.query_params,
+        headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
+        data=body
+    ) as resp:
+        content = await resp.read()
+        return Response(content, status_code=resp.status, headers=dict(resp.headers))

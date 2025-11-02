@@ -9160,18 +9160,35 @@ clearSegments() {
     }
   },
   
-  // 加载指定扩展
-  loadExtension(extension) {
-    if (extension) {
-      this.currentExtension = extension;
-      this.sidePanelURL = `/ext/${extension.id}/index.html`;
-      showNotification(`已加载扩展: ${extension.name}`, 'success');
-    } else {
-      // 返回默认内容
+    // 加载指定扩展
+  async loadExtension(extension) {
+    if (!extension) {
       this.currentExtension = null;
       this.sidePanelURL = '';
-      showNotification('已恢复默认视图', 'success');
+      return;
     }
+
+    /* 1. 先尝试 Node 模式 */
+    try {
+      const r = await fetch(`/api/extensions/${extension.id}/start-node`, { method: 'POST' });
+      const res = await r.json();
+
+      if (res.mode === 'node') {
+        // ✅ Node 成功
+        this.currentExtension = extension;
+        this.sidePanelURL = `/api/extensions/${extension.id}/node/`;
+        showNotification(`${this.t('loadExtension(node)')}: ${extension.name}`, 'success');
+        return;
+      }
+      // res.mode === 'static' 继续走下面兜底
+    } catch (e) {
+      // 任何异常也继续兜底
+    }
+
+    /* 2. 回退静态路由 */
+    this.currentExtension = extension;
+    this.sidePanelURL = `/ext/${extension.id}/index.html`;
+    showNotification(`${this.t('loadExtension(static)')}: ${extension.name}`, 'success');
   },
   
   // 切换到默认视图
@@ -9188,29 +9205,45 @@ clearSegments() {
   },
   
   // 切换扩展
-  switchExtension(extension) {
-    this.loadExtension(extension);
-    this.showExtensionsDialog = false;
-    // extension.systemPrompt填充到this.messages[0].content
-    if (this.currentExtension) {
-      this.messages[0].content = this.currentExtension.systemPrompt;
-      this.expandSidePanel();
-    }else {
-      this.messages[0].content = ''; // 清空
-      this.expandChatArea();
-      this.collapseSidePanel();
-    }
+  async switchExtension(extension) {
+    this.sidePanelURL = '';
+    this.showExtensionsDialog = false; // 关闭对话框
+    this.currentExtension = extension;
+    this.messages[0].content = this.currentExtension.systemPrompt;
+    this.expandSidePanel();
+    await this.loadExtension(extension);
   },
-  openExtension(extension) {
-    let url = `${this.partyURL}/ext/${extension.id}/index.html`;
-    if (isElectron) {
-      window.electronAPI.openExternal(url)   // 主进程会新建可关闭的独立窗口
-    } else {
-      window.open(url, '_blank')
-    }
-  },
+
+  // 工具函数：返回扩展真正能访问的地址（Node > 静态）
+  async getExtensionURL(ext) {
+    console.log('获取扩展URL', ext);
+    // 1. 先尝试启动 Node
+    try {
+      const r = await fetch(`/api/extensions/${ext.id}/start-node`, { method: 'POST' });
+      const res = await r.json();
+      if (res.mode === 'node') {
+        return `/api/extensions/${ext.id}/node/`;   // ✅ Node 代理路径
+      }
+      console.log('启动 Node 失败，回退静态',res);
+    } catch { 
+     }
+    // 2. 回退静态
+    return `/ext/${ext.id}/index.html`;
+  }, 
+
+    async openExtension(extension) {
+      const url = await this.getExtensionURL(extension);   // ⬅️ 异步拿地址
+      console.log('打开扩展', `${this.partyURL}${url}`);
+      if (isElectron) {
+        window.electronAPI.openExternal(`${this.partyURL}${url}`);
+      } else {
+        window.open(url, '_blank');
+      }
+    },
     // 删除扩展
     async removeExtension(ext) {
+      // 若是 Node 模式就停进程，忽略错误
+      await fetch(`/api/extensions/${ext.id}/stop-node`, { method: 'POST' }).catch(() => {});
       try {
         const res = await fetch(`/api/extensions/${ext.id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('删除失败');
@@ -9551,39 +9584,29 @@ clearSegments() {
   },
   // 修改 openExtensionInWindow 方法
   async openExtensionInWindow(extension) {
-    let url = `${this.partyURL}/ext/${extension.id}/index.html`;
-    this.loadExtension(extension);
+    const url = await this.getExtensionURL(extension);   // ⬅️ 同样先启动/拿地址
+
+    // 下面逻辑你原来就有，只把 url 换成异步得到的即可
+    this.loadExtension(extension);   // 侧边栏也同步加载（可选）
     this.showExtensionsDialog = false;
-    
-    // extension.systemPrompt填充到this.messages[0].content
-    if (this.currentExtension) {
-      this.messages[0].content = this.currentExtension.systemPrompt;
-    } else {
-      this.messages[0].content = ''; // 清空
-    }
-    console.log("extension.transparent is "+extension.transparent);
-    // 检查是否在Electron环境中
+    this.messages[0].content = extension.systemPrompt || '';
+
     if (window.electronAPI && window.electronAPI.openExtensionWindow) {
       try {
-        // 只传递可序列化的属性，避免传递整个 extension 对象
-        const extensionConfig = {
+        const windowId = await window.electronAPI.openExtensionWindow(`${this.partyURL}${url}`, {
           id: extension.id,
           name: extension.name,
           transparent: extension.transparent || false,
           width: extension.width || 800,
           height: extension.height || 600,
-        };
-        
-        const windowId = await window.electronAPI.openExtensionWindow(url, extensionConfig);
+        });
         console.log(`Extension window opened with ID: ${windowId}`);
       } catch (error) {
         console.error('Failed to open extension window:', error);
-        // 如果Electron方式失败，回退到普通方式
-        window.open(url, '_blank');
+        window.open(`${this.partyURL}${url}`, '_blank');
       }
     } else {
-      // 非Electron环境或API不可用，使用普通方式
-      window.open(url, '_blank');
+      window.open(`${this.partyURL}${url}`, '_blank');
     }
   },
   async sherpaModelStatus() {

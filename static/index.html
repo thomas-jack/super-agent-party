@@ -1017,6 +1017,12 @@ if ('serviceWorker' in navigator) {
                         allowfullscreen 
                         style="width: 100%; height: 100%;">
                 </iframe>
+                <div v-else-if="currentExtension" class="loading-container">
+                  <div class="loading-content">
+                    <i class="fa-solid fa-spinner fa-spin loading-icon"></i>
+                    <p class="loading-text">{{t('waitForLoadingExt')}}</p>
+                  </div>
+                </div>
                 <div v-else class="extensions-list" style="margin: 10px;height: 100%;">
                   <!-- 默认视图选项 -->
                   <el-card 
