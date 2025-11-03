@@ -219,6 +219,13 @@ async def lifespan(app: FastAPI):
 
     with open(base_path + "/config/locales.json", "r", encoding="utf-8") as f:
         locales = json.load(f)
+
+    try:
+        from py.sherpa_asr import _get_recognizer
+        _get_recognizer()
+    except Exception as e:
+        logger.error(f"尝试启动sherpa失败: {e}")
+        pass
     from tzlocal import get_localzone
     local_timezone = get_localzone()
     settings = await load_settings()
