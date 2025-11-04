@@ -2453,6 +2453,15 @@ if ('serviceWorker' in navigator) {
                             @change="autoSaveSettings">
                         </el-form-item>
 
+                        <el-form-item :label="t('gsvSample_steps')" class="form-item-align">
+                          <el-slider
+                            v-model="newTTSConfig.gsvSample_steps"
+                            :min="1"
+                            :max="16"
+                            :step="1"
+                            @change="autoSaveSettings">
+                        </el-form-item>                       
+
                         <!-- 语言选择框 -->
                         <el-form-item :label="t('gsvTextLang')" class="form-item-align">
                           <el-select
@@ -2496,7 +2505,7 @@ if ('serviceWorker' in navigator) {
                               v-for="audio in newTTSConfig.gsvAudioOptions"
                               :key="audio.path"
                               :label="audio.name"
-                              :value="audio.path"
+                               :value="audio.path"
                             >
                               <div class="model-option-item">
                                 <span>{{ audio.name }}</span>
@@ -4675,6 +4684,15 @@ if ('serviceWorker' in navigator) {
                           :step="0.1"
                           @change="autoSaveSettings">
                       </el-form-item>
+
+                        <el-form-item :label="t('gsvSample_steps')" class="form-item-align">
+                          <el-slider
+                            v-model="ttsSettings.gsvSample_steps"
+                            :min="1"
+                            :max="16"
+                            :step="1"
+                            @change="autoSaveSettings">
+                        </el-form-item>   
 
                       <!-- 语言选择框 -->
                       <el-form-item :label="t('gsvTextLang')" class="form-item-align">

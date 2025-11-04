@@ -4518,12 +4518,6 @@ async def text_to_speech(request: Request):
             if not os.path.exists(audio_path):
                 # 如果音频文件不存在，则认为是相对路径
                 audio_path = tts_settings.get('gsvRefAudioPath', '')
-            # 动态样本步数设置
-            sample_steps = 4
-            if index == 1:
-                sample_steps = 1
-            elif index <= 4:
-                sample_steps = 2
 
             # 构建核心请求参数
             gsv_params = {
@@ -4533,7 +4527,7 @@ async def text_to_speech(request: Request):
                 "prompt_lang": tts_settings.get('gsvPromptLang', 'zh'),
                 "prompt_text": tts_settings.get('gsvPromptText', ''),
                 "speed_factor": tts_settings.get('gsvRate', 1.0),
-                "sample_steps": sample_steps,
+                "sample_steps": tts_settings.get('gsvSample_steps', 4),
                 "streaming_mode": True,
                 "text_split_method": "cut0",
                 "media_type": "ogg",

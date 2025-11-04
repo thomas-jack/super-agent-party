@@ -236,6 +236,7 @@
       "gsvRate": 1.0,
       "gsvPromptLang": "zh",
       "gsvPromptText": "",
+      "gsvSample_steps": 4,
       "gsvRefAudioPath": "",
       "gsvAudioOptions": [],
       "selectedProvider": null,
