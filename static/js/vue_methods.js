@@ -1155,6 +1155,7 @@ let vue_methods = {
           if (this.asrSettings.enabled) {
             this.startASR();
           }
+          if (this.activeMenu === 'home') this.startDriverGuide();
         } 
         else if (data.type === 'settings_saved') {
           if (!data.success) {
@@ -2451,7 +2452,7 @@ let vue_methods = {
         'o3': 'https://api.o3.fan/v1',
         'aihubmix': 'https://aihubmix.com/v1',
         'ocoolai': 'https://api.ocoolai.com/v1',
-        'Github': 'https://models.inference.ai.azure.com',
+        'Github': 'https://models.github.ai/inference',
         'dmxapi': 'https://www.dmxapi.cn/v1',
         'openrouter': 'https://openrouter.ai/api/v1',
         'together': 'https://api.together.xyz/v1',

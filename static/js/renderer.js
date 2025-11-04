@@ -145,7 +145,6 @@ const app = Vue.createApp({
       }
     });
   }, 1000); 
-  if (this.activeMenu === 'home') this.startDriverGuide();
     this.scanExtensions(); // 扫描扩展
   },
   beforeUnmount() {

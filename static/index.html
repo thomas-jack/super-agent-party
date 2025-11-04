@@ -4074,15 +4074,25 @@ if ('serviceWorker' in navigator) {
                     class="sherpa-card"
                   >
                     <!-- 卡片头部：标题 + 安装状态 -->
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                      <!-- 左侧标题 -->
                       <span><strong>Sherpa ONNX Sense Voice</strong></span>
-                      <el-tag
-                        :type="sherpaModelExists ? 'success' : 'info'"
-                        effect="dark"
-                      >
-                        {{ sherpaModelExists ? t('installed') : t('notInstalled') }}
-                      </el-tag>
+
+                      <!-- 右侧 tag 组 -->
+                      <div class="d-flex gap-2">
+                        <el-tag type="info" effect="dark">
+                          239MB
+                        </el-tag>
+
+                        <el-tag
+                          :type="sherpaModelExists ? 'success' : 'info'"
+                          effect="dark"
+                        >
+                          {{ sherpaModelExists ? t('installed') : t('notInstalled') }}
+                        </el-tag>
+                      </div>
                     </div>
+
 
                     <!-- 操作按钮区 -->
                     <div class="card-actions">
@@ -4099,6 +4109,7 @@ if ('serviceWorker' in navigator) {
 
                         <el-button
                           type="primary"
+                          :style="{ margin: '0' }"
                           :disabled="sherpaModelExists || sherpaDownloading"
                           :loading="sherpaDownloading && source==='huggingface'"
                           @click="sherpaDownload('huggingface')"

@@ -4,58 +4,52 @@ import sherpa_onnx
 import soundfile as sf
 from io import BytesIO
 from py.get_setting import DEFAULT_ASR_DIR
-
 import platform
 
+# ---------- 设备选择 ----------
 def _nvidia_gpu_count() -> int:
-    """返回可用 NVIDIA GPU 数量；驱动或库缺失时返回 0"""
     try:
-        import pynvml          # nvidia-ml-py 的顶层包名
+        import pynvml
         pynvml.nvmlInit()
         return pynvml.nvmlDeviceGetCount()
-    except Exception:          # 驱动没装、权限不足、库缺失等都算“没有 GPU”
+    except Exception:
         return 0
 
 def _best_provider() -> str:
-    """返回 cpu / cuda / coreml 三者之一"""
     if _nvidia_gpu_count() > 0:
         return 'cuda'
     if platform.system() == 'Darwin' and platform.machine() == 'arm64':
         return 'coreml'
     return 'cpu'
 
-
-# 默认模型子目录名
-DEFAULT_MODEL_NAME = "sherpa-onnx-sense-voice-zh-en-ja-ko-yue"
 DEVICE = _best_provider()
-print(f"使用 {DEVICE} 设备")
+DEFAULT_MODEL_NAME = "sherpa-onnx-sense-voice-zh-en-ja-ko-yue"
 
+# ---------- 懒加载 recognizer ----------
+_recognizer = None
+
+def _get_recognizer(model_name: str = DEFAULT_MODEL_NAME):
+    global _recognizer
+    if _recognizer is None:          # 第一次调用时才初始化
+        model_dir = Path(DEFAULT_ASR_DIR) / model_name
+        model = model_dir / "model.int8.onnx"
+        tokens = model_dir / "tokens.txt"
+        if not model.is_file() or not tokens.is_file():
+            raise ValueError(f"Sherpa 模型文件未找到，目录={model_dir}")
+
+        _recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
+            model=str(model),
+            tokens=str(tokens),
+            num_threads=4,
+            provider=DEVICE,
+            use_itn=True,
+            debug=False,
+        )
+    return _recognizer
+
+# ---------- 识别接口 ----------
 async def sherpa_recognize(audio_bytes: bytes, model_name: str = None):
-    """
-    用 Sherpa 识别音频
-    参数:
-        audio_bytes: 音频字节
-        model_name:  子目录名，None 则使用默认模型
-    返回:
-        识别文本
-    """
-    model_name = model_name or DEFAULT_MODEL_NAME
-    model_dir = Path(DEFAULT_ASR_DIR) / model_name
-    model = model_dir / "model.int8.onnx"
-    tokens = model_dir / "tokens.txt"
-
-    if not model.is_file() or not tokens.is_file():
-        raise ValueError(f"Sherpa 模型文件未找到，目录={model_dir}")
-
-    recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
-        model=str(model),
-        tokens=str(tokens),
-        num_threads=4,
-        provider=DEVICE,
-        use_itn=True,
-        debug=False,
-    )
-
+    recognizer = _get_recognizer(model_name or DEFAULT_MODEL_NAME)
     try:
         with BytesIO(audio_bytes) as audio_file:
             audio, sample_rate = sf.read(audio_file, dtype="float32", always_2d=True)
