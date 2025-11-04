@@ -1614,4 +1614,12 @@ main();`,
     imageInputOptions: [], // 确保这里是一个空数组
     seedInputOptions: [], // 确保这里是一个空数组
     inAutoMode: false, // 内存变量，不在设置中保存
+    vectorDialogVisible: false,
+    vectorDialogMemoryId: '',
+    vectorDialogMemoryName: '',
+    vectorLoading: false,
+    vectorTable: [],       // { idx, uuid, text, created_at, timetamp }
+    editRowIdx: null,      // 当前编辑的行号（=后端 idx）
+    editRowText: "",     // 当前编辑的文本
+    editRowVisible: false,
 };

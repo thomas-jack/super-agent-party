@@ -1,16 +1,18 @@
 # -- coding: utf-8 --
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import glob
 from io import BytesIO
 import os
 from pathlib import Path
+import pickle
 import random
 import socket
 import sys
 import tempfile
 import threading
 import aiohttp
+import faiss
 import httpx
 from scipy.io import wavfile
 import numpy as np
@@ -29,7 +31,7 @@ from functools import partial
 import json
 import re
 import shutil
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, WebSocket, Request, WebSocketDisconnect
+from fastapi import BackgroundTasks, Body, FastAPI, File, Form, HTTPException, UploadFile, WebSocket, Request, WebSocketDisconnect
 from fastapi_mcp import FastApiMCP
 import logging
 from fastapi.staticfiles import StaticFiles
@@ -6179,6 +6181,128 @@ async def start_live_client(config: dict):
             except Exception as e:
                 print(f"关闭Session时出错: {e}")
 
+
+# ---------- 工具 ----------
+def get_dir(mid: str) -> str:
+    return os.path.join(MEMORY_CACHE_DIR, mid)
+
+def get_faiss_path(mid: str) -> str:
+    return os.path.join(get_dir(mid), "agent-party.faiss")
+
+def get_pkl_path(mid: str) -> str:
+    return os.path.join(get_dir(mid), "agent-party.pkl")
+
+def load_index_and_meta(mid: str) -> Tuple[faiss.Index, Dict[str, Any]]:
+    fpath, ppath = get_faiss_path(mid), get_pkl_path(mid)
+    if not (os.path.exists(fpath) and os.path.exists(ppath)):
+        raise HTTPException(status_code=404, detail="memory not found")
+    index = faiss.read_index(fpath)
+    with open(ppath, "rb") as f:
+        raw = pickle.load(f)          # 可能是 tuple 也可能是 dict
+    # 兼容旧数据：如果是 tuple 取第 0 个，否则直接用
+    meta_dict = raw[0] if isinstance(raw, tuple) else raw
+    return index, meta_dict
+
+def save_index_and_meta(mid: str, index: faiss.Index, meta: List[Dict[Any, Any]]):
+    faiss.write_index(index, get_faiss_path(mid))
+    with open(get_pkl_path(mid), "wb") as f:
+        pickle.dump(meta, f)
+
+
+def fmt_iso8605_to_local(iso: str) -> str:
+    """
+    ISO-8601 -> 服务器本地时区 yyyy-MM-dd HH:mm:ss
+    """
+    try:
+        dt = datetime.fromisoformat(iso)      # 读入（可能带时区）
+        dt = dt.astimezone()                  # 落到服务器当前时区
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return iso        # 解析失败就原样返回
+
+
+def flatten_records(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+    flat = []
+    for uuid, rec in meta.items():
+        flat.append({
+            "idx"        : len(flat),
+            "uuid"       : uuid,
+            "text"       : rec["data"],
+            "created_at" : fmt_iso8605_to_local(rec["created_at"]),
+            "timetamp"   : rec["timetamp"],
+        })
+    return flat
+
+
+# 新增： dict ↔ list 互转工具
+def dict_to_list(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """有序化，保证顺序与 Faiss 索引一致"""
+    return [{uuid: rec} for uuid, rec in meta.items()]
+
+def list_to_dict(meta_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """列表再压回 dict"""
+    new_meta = {}
+    for item in meta_list:
+        uuid, rec = next(iter(item.items()))
+        new_meta[uuid] = rec
+    return new_meta
+
+# ---------- 模型 ----------
+class TextUpdate(BaseModel):
+    new_text: str
+
+# ---------- 1. 读取（平铺） ----------
+@app.get("/memory/{memory_id}")
+async def read_memory(memory_id: str) -> List[Dict[str, Any]]:
+    _, meta_dict = load_index_and_meta(memory_id)   # 拆包
+    return flatten_records(meta_dict)               # 传字典
+
+# ---------- 2. 修改（只改 data） ----------
+@app.put("/memory/{memory_id}/{idx}")
+async def update_text(
+    memory_id: str,
+    idx: int,
+    body: TextUpdate = Body(...)
+) -> dict:
+    index, meta_dict = load_index_and_meta(memory_id)
+    meta_list = dict_to_list(meta_dict)
+    if not (0 <= idx < len(meta_list)):
+        raise HTTPException(status_code=404, detail="index out of range")
+    # 定位 → 改 data
+    uuid, rec = next(iter(meta_list[idx].items()))
+    rec["data"] = body.new_text
+    # 写回
+    save_index_and_meta(memory_id, index, list_to_dict(meta_list))
+    return {"message": "updated", "idx": idx}
+
+
+# ---------- 3. 删除（按行号） ----------
+@app.delete("/memory/{memory_id}/{idx}")
+async def delete_text(memory_id: str, idx: int) -> dict:
+    index, meta_dict = load_index_and_meta(memory_id)
+    meta_list = dict_to_list(meta_dict)
+    if not (0 <= idx < len(meta_list)):
+        raise HTTPException(status_code=404, detail="index out of range")
+
+    ntotal = index.ntotal
+    print("index.ntotal",index.ntotal)
+    print("len(meta_list)",len(meta_list))
+    if ntotal != len(meta_list):
+        raise RuntimeError("index 与 meta 长度不一致")
+
+    # 1. 重建 Faiss 索引（去掉 idx）
+    ids_to_keep = np.array([i for i in range(ntotal) if i != idx], dtype=np.int64)
+    vecs = np.vstack([index.reconstruct(i) for i in range(ntotal)])
+    new_index = faiss.IndexFlatL2(index.d)   # 跟你建索引时保持一致
+    if vecs.shape[0] - 1 > 0:
+        new_index.add(vecs[ids_to_keep].astype("float32"))
+
+    # 2. 删除列表元素
+    del meta_list[idx]
+
+    # 3. 落盘
+    save_index_and_meta(memory_id, new_index, list_to_dict(meta_list))
+    return {"message": "deleted", "idx": idx}
 
 class WebSocketHandler(blivedm.BaseHandler):
     """Web类型WebSocket处理器"""

@@ -1555,6 +1555,51 @@ if ('serviceWorker' in navigator) {
                   </el-tab-pane>
                   <!-- 添加新记忆标签页 -->
                   <el-tab-pane :label="t('addNewMemory')" name="add">
+                    <!-- 向量库交互 Dialog -->
+                    <el-dialog
+                      v-model="vectorDialogVisible"
+                      :title="t('vectorInteractTitle') + ' —— ' + vectorDialogMemoryName"
+                      width="80%"
+                      top="5vh"
+                    >
+                      <div v-loading="vectorLoading">
+                        <el-table :data="vectorTable" stripe height="400">
+                          <el-table-column prop="idx" label="#" width="60" ></el-table-column>
+                          <el-table-column prop="text" :label="t('memoryText')"></el-table-column>
+                          <el-table-column prop="created_at" :label="t('createTime')"width="160"></el-table-column>
+                          <el-table-column prop="timetamp" :label="t('lastTime')" width="160" ></el-table-column>
+                          <el-table-column width="100">
+                            <template #default="{ $index }">
+                              <el-button circle @click="startEditRow($index)">
+                                <i class="fa-solid fa-pen"></i>
+                              </el-button>
+                              <el-button circle type="danger" @click="deleteVectorRow(vectorTable[$index].idx)">
+                                <i class="fa-solid fa-trash"></i>
+                              </el-button>
+                            </template>
+                          </el-table-column>
+                        </el-table>
+                      </div>
+
+                      <!-- 底部统一关闭 -->
+                      <template #footer>
+                        <el-button @click="vectorDialogVisible = false">{{ t('close') }}</el-button>
+                      </template>
+                    </el-dialog>
+
+                    <!-- 单行编辑小弹窗 -->
+                    <el-dialog
+                      v-model="editRowVisible"
+                      width="40%"
+                      :title="t('editText')"
+                    >
+                      <el-input v-model="editRowText" type="textarea" :rows="4" ></el-input>
+                      <template #footer>
+                        <el-button @click="editRowVisible = false">{{ t('cancel') }}</el-button>
+                        <el-button type="primary" @click="submitEditRow">{{ t('confirm') }}</el-button>
+                      </template>
+                    </el-dialog>
+
                     <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
                       <!-- 大输入框：限制最大宽度，让出空间给按钮 -->
                       <el-input
@@ -1601,31 +1646,48 @@ if ('serviceWorker' in navigator) {
                             class="mini-vendor-logo"
                           />
                           <div class="card-actions">
-                            <el-button
-                              @click="downloadMemory(memory)"
-                              type="primary"
-                              circle
-                              size="small"
-                            >
-                              <i class="fa-solid fa-download"></i>
-                            </el-button>
-                            <el-button
-                              @click="editMemory(memory.id)"
-                              :disabled="isGenerating"
-                              type="default"
-                              circle
-                              size="small"
-                            >
-                              <i class="fa-solid fa-pen-to-square"></i>
-                            </el-button>
-                            <el-button
-                              @click="removeMemory(memory.id)"
-                              type="danger"
-                              circle
-                              size="small"
-                            >
-                              <i class="fa-solid fa-trash"></i>
-                            </el-button>
+                            <el-tooltip :content="t('vectorInteract')" placement="top">
+                              <el-button
+                                type="warning"
+                                circle
+                                size="small"
+                                @click="openVectorDialog(memory.id)"
+                                v-if="memory.providerId"
+                              >
+                                <i class="fa-solid fa-brain"></i>
+                              </el-button>
+                            </el-tooltip>
+                            <el-tooltip :content="t('downloadMemory')" placement="top">
+                              <el-button
+                                @click="downloadMemory(memory)"
+                                type="primary"
+                                circle
+                                size="small"
+                              >
+                                <i class="fa-solid fa-download"></i>
+                              </el-button>
+                            </el-tooltip>
+                            <el-tooltip :content="t('editMemory')" placement="top">
+                              <el-button
+                                @click="editMemory(memory.id)"
+                                :disabled="isGenerating"
+                                type="default"
+                                circle
+                                size="small"
+                              >
+                                <i class="fa-solid fa-pen-to-square"></i>
+                              </el-button>
+                            </el-tooltip>
+                            <el-tooltip :content="t('removeMemory')" placement="top">
+                              <el-button
+                                @click="removeMemory(memory.id)"
+                                type="danger"
+                                circle
+                                size="small"
+                              >
+                                <i class="fa-solid fa-trash"></i>
+                              </el-button>
+                            </el-tooltip>
                           </div>
                         </div>
                         <div class="kb-content">
