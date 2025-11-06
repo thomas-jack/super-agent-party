@@ -844,6 +844,17 @@ if ('serviceWorker' in navigator) {
                   </el-button>
                 </el-tooltip>
 
+                <el-tooltip :content="t('sqlControl')" placement="top">
+                  <el-button
+                    @click="sqlSettings.enabled = !sqlSettings.enabled; changeSqlEnabled();"
+                    class="icon-btn sqlControl-btn"
+                    :type="sqlSettings.enabled ? 'primary' : 'default'"
+                    v-if="MoreButtonDict.find(b => b.name === 'sqlButton')?.enabled&&!isCapsuleMode"
+                    circle>
+                    <i class="fa-solid fa-database"></i>
+                  </el-button>
+                </el-tooltip>
+
                 <el-tooltip :content="t('agentSnapshot')" placement="top">
                   <el-button
                     @click="showAgentDialog = true"
