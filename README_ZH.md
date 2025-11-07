@@ -103,20 +103,14 @@
 
 ### 源码部署
 
-- windows ：
   ```shell
   git clone https://github.com/heshengtao/super-agent-party.git
   cd super-agent-party
-  install.bat
-  npm run dev
-  ```
-
-- linux or mac ：
-  ```shell
-  git clone https://github.com/heshengtao/super-agent-party.git
-  cd super-agent-party
-  chmod +x install.sh
-  ./install.sh
+  uv sync
+  npm install
+  cd static
+  npm install
+  cd ..
   npm run dev
   ```
 
