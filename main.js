@@ -6,7 +6,6 @@ const path = require('path')
 const { spawn } = require('child_process')
 const { exec } = require('child_process');
 const { download } = require('electron-dl');
-const sharp = require('sharp')   // 轻量裁剪库，npm i sharp
 const fs = require('fs')
 const os = require('os')
 const net = require('net') // 添加 net 模块用于端口检测
@@ -21,7 +20,6 @@ let isMac = process.platform === 'darwin';
 const vmcSendSocket = dgram.createSocket('udp4'); // 发送复用同一 socket
 
 async function cropDesktop(rect) {
-  // 字段检查
   if (!rect || typeof rect.x !== 'number' || typeof rect.y !== 'number' ||
       typeof rect.width !== 'number' || typeof rect.height !== 'number') {
     throw new Error('cropDesktop 需要 {x,y,width,height} 且均为数字')
@@ -33,16 +31,21 @@ async function cropDesktop(rect) {
     thumbnailSize: { width, height }
   })
   if (!sources.length) throw new Error('无法获取屏幕源')
+
+  // 1. 拿到全屏 PNG 缓冲区
   const pngBuffer = sources[0].thumbnail.toPNG()
 
-  return sharp(pngBuffer)
-         .extract({               // 显式写成对象
-           left: Math.floor(rect.x),
-           top: Math.floor(rect.y),
-           width: Math.floor(rect.width),
-           height: Math.floor(rect.height)
-         })
-         .toBuffer()
+  // 2. 用 Electron 自带的 nativeImage 裁
+  const img  = nativeImage.createFromBuffer(pngBuffer)
+  const cropped = img.crop({
+    x: Math.floor(rect.x),
+    y: Math.floor(rect.y),
+    width: Math.floor(rect.width),
+    height: Math.floor(rect.height)
+  })
+
+  // 3. 直接返回 Buffer，下游无需改
+  return cropped.toPNG()
 }
 
 // ★ 替换原来的 startVMCReceiver
@@ -673,7 +676,10 @@ app.whenReady().then(async () => {
       return pngBuffer // 给渲染进程
     })
 
-    ipcMain.handle('crop-desktop', async (e, { rect }) => cropDesktop(rect))
+    ipcMain.handle('crop-desktop', async (e, { rect }) => {
+      const png = await cropDesktop(rect)          // 不管是 sharp 还是 nativeImage
+      return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength)
+    })
 
     ipcMain.handle('show-screenshot-overlay', async () => {
       // 1. 隐藏主窗口
