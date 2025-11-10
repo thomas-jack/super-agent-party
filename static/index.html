@@ -8978,15 +8978,18 @@ if ('serviceWorker' in navigator) {
                               <div>
                                 
                                 <!-- 启动按钮 -->
-                                <el-tooltip :content="t('start_read')" placement="top">
+                                <el-tooltip :content="t(isReadRunning ? (isReadPaused ? 'resume_read' : 'pause_read') : 'start_read')" placement="top">
                                   <el-button 
                                     type="primary" 
-                                    @click="startRead" 
-                                    :disabled="!readConfig.longText || isReadRunning || isReadStarting"
+                                    @click="toggleRead" 
+                                    :disabled="!readConfig.longText || isReadStarting"
                                     circle
                                   >
                                     <template v-if="isReadStarting">
                                       <i class="fa-solid fa-spinner fa-spin"></i>
+                                    </template>
+                                    <template v-else-if="isReadRunning && !isReadPaused">
+                                      <i class="fa-solid fa-pause"></i>
                                     </template>
                                     <template v-else>
                                       <i class="fa-solid fa-play"></i>

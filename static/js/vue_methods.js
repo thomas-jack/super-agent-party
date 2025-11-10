@@ -1294,8 +1294,12 @@ let vue_methods = {
     // 发送消息
     async sendMessage(role = 'user') { 
       if (!this.userInput.trim() || this.isTyping) return;
-      if (this.readState.isPlaying && this.ttsSettings.enabled) {          // 暂停
-        this.stopSegmentTTS(isEnd=false);
+      if (this.readState.isPlaying && this.ttsSettings.enabled) { 
+        if (this.isReadRunning){
+          this.pauseRead();
+        }else{
+          this.stopSegmentTTS(isEnd=false);
+        }
         this.isReadInterruption = true;
       }
       this.isTyping = true;
@@ -5821,9 +5825,13 @@ let vue_methods = {
         lastMessage.currentChunk = 0;
         this.TTSrunning = false;
         this.cur_audioDatas = [];
-        if(this.isReadInterruption && !this.readState.isPlaying){
+        if(this.isReadInterruption){
           setTimeout(() => {
-            this.toggleContinuousPlay();
+            if (this.isReadPaused){
+              this.resumeRead();
+            }else{
+              this.toggleContinuousPlay();
+            }
           }, this.readSettings.delay);
         }
         // 通知VRM所有音频播放完成
@@ -7347,86 +7355,120 @@ async deleteGaussSceneOption(sceneId) {
     }
   },
     /* ===============  朗读主流程  =============== */
-    // 修改 startRead 方法
-    async startRead() {
-      if (!this.readConfig.longText.trim()) return;
-      this.stopSegmentTTS();
-      this.readState.currentChunk = 0;
-      this.isReadStarting = true;
-      this.isReadRunning  = true;
-      this.isReadStopping = false;
+toggleRead() {
+  if (this.isReadRunning) {
+    if (this.isReadPaused) {
+      this.resumeRead();
+    } else {
+      this.pauseRead();
+    }
+  } else {
+    this.startRead();
+  }
+},
 
-      /* 1. 清空上一次的残留 */
-      this.readState.ttsChunks  = [];
-      this.readState.audioChunks = [];
-      this.readState.currentChunk = 0;
-      this.readState.isPlaying = false;
-      this.readState.chunks_voice = [];
-      this.cur_voice = 'default';
-      
-      /* 新增: 重置音频计数状态 */
-      this.audioChunksCount = 0; // 重置计数
-      this.totalChunksCount = 0; // 先设置为0
+// 修改后的startRead方法
+async startRead() {
+  if (!this.readConfig.longText.trim()) return;
+  
+  this.stopSegmentTTS();
+  this.readState.currentChunk = 0;
+  this.isReadStarting = true;
+  this.isReadRunning  = true;
+  this.isReadPaused   = false;  // 重置暂停状态
+  this.isReadStopping = false;
 
-      /* 2. 分段 */
-      const {
-        chunks,
-        chunks_voice,
-        remaining,
-        remaining_voice
-      } = this.splitTTSBuffer(this.readConfig.longText);
+  /* 清空上一次的残留 */
+  this.readState.ttsChunks  = [];
+  this.readState.audioChunks = [];
+  this.readState.currentChunk = 0;
+  this.readState.isPlaying = false;
+  this.readState.chunks_voice = [];
+  this.cur_voice = 'default';
+  
+  /* 重置音频计数状态 */
+  this.audioChunksCount = 0;
+  this.totalChunksCount = 0;
 
-      // 追加 remaining
-      if (remaining) {
-        chunks.push(remaining);
-        chunks_voice.push(remaining_voice);
-      }
+  /* 分段处理逻辑（保持原有） */
+  const {
+    chunks,
+    chunks_voice,
+    remaining,
+    remaining_voice
+  } = this.splitTTSBuffer(this.readConfig.longText);
 
-      /* ================= 新增：去标签 + 去空白并同步删除 ================= */
-      // 1. 去 HTML 标签
-      const cleanedChunks = chunks.map(txt => txt.replace(/<\/?[^>]+>/g, '').trim());
+  if (remaining) {
+    chunks.push(remaining);
+    chunks_voice.push(remaining_voice);
+  }
 
-      // 2. 过滤空白并同步删除 chunks_voice 对应项
-      const finalChunks       = [];
-      const finalChunksVoice  = [];
+  /* 去标签 + 去空白并同步删除 */
+  const cleanedChunks = chunks.map(txt => txt.replace(/<\/?[^>]+>/g, '').trim());
+  const finalChunks = [];
+  const finalChunksVoice = [];
 
-      cleanedChunks.forEach((txt, idx) => {
-        if (txt) {                      // 非空才保留
-          finalChunks.push(txt);
-          finalChunksVoice.push(chunks_voice[idx]);
-        }
-      });
+  cleanedChunks.forEach((txt, idx) => {
+    if (txt) {
+      finalChunks.push(txt);
+      finalChunksVoice.push(chunks_voice[idx]);
+    }
+  });
 
-      // 3. 覆盖原来的数组
-      chunks.length       = 0;
-      chunks_voice.length = 0;
-      chunks.push(...finalChunks);
-      chunks_voice.push(...finalChunksVoice);
-      /* ================================================================ */
+  if (!finalChunks.length) {
+    this.isReadRunning  = false;
+    this.isReadStarting = false;
+    return;
+  }
 
-      if (!chunks.length) {
-        this.isReadRunning  = false;
-        this.isReadStarting = false;
-        return;
-      }
+  this.readState.ttsChunks   = finalChunks;
+  this.readState.chunks_voice = finalChunksVoice;
+  this.totalChunksCount = finalChunks.length;
 
-      this.readState.ttsChunks   = chunks;
-      this.readState.chunks_voice = chunks_voice;
-      
-      /* 新增: 设置总片段数 */
-      this.totalChunksCount = chunks.length; // 设置总片段数
+  /* 通知 VRM 开始朗读 */
+  this.sendTTSStatusToVRM('ttsStarted', {
+    totalChunks: this.readState.ttsChunks.length
+  });
 
-      /* 3. 通知 VRM 开始朗读 */
-      this.sendTTSStatusToVRM('ttsStarted', {
-        totalChunks: this.readState.ttsChunks.length
-      });
+  this.isReadStarting = false;
 
-      this.isReadStarting = false;
+  /* 并发 TTS */
+  this.isAudioSynthesizing = true;
+  await this.startReadTTSProcess();
+},
 
-      /* 4. 并发 TTS */
-      this.isAudioSynthesizing = true; // 开始合成
-      await this.startReadTTSProcess();
-    },
+// 新增：暂停朗读
+pauseRead() {
+  if (!this.isReadRunning || this.isReadPaused) return;
+  
+  this.isReadPaused = true;
+  
+  // 暂停当前音频
+  if (this.currentReadAudio) {
+    this.currentReadAudio.pause();
+  }
+  
+  // 通知 VRM 暂停
+  this.sendTTSStatusToVRM('pauseSpeaking', {});
+},
+
+// 新增：恢复朗读
+resumeRead() {
+  if (!this.isReadRunning || !this.isReadPaused) return;
+  
+  this.isReadPaused = false;
+  
+  // 恢复当前音频播放
+  if (this.currentReadAudio) {
+    this.currentReadAudio.play().catch(console.error);
+  }
+  
+  // 通知 VRM 恢复
+  this.sendTTSStatusToVRM('resumeSpeaking', {});
+  
+  // 尝试继续播放后续音频
+  this.checkReadAudioPlayback();
+},
 
     // 修改 processReadTTSChunk 方法
     async processReadTTSChunk(index) {
@@ -7633,63 +7675,62 @@ async deleteGaussSceneOption(sceneId) {
       }
     },
 
-    // 在 stopRead 中重置状态
-    stopRead() {
-      if (!this.isReadRunning) return;
-      this.isReadStopping = true;
-      this.isReadRunning  = false;
+// 修改 stopRead 方法
+stopRead() {
+  if (!this.isReadRunning) return;
+  
+  this.isReadStopping = true;
+  this.isReadRunning  = false;
+  this.isReadPaused   = false;  // 重置暂停状态
+  this.readState.isPlaying = false;
 
-      /* 停掉当前音频 */
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-        this.currentAudio = null;
-      }
-      this.sendTTSStatusToVRM('stopSpeaking', {});
-      
-      /* 新增: 重置音频计数状态 */
-      this.isAudioSynthesizing = false;
-      this.audioChunksCount = 0;
-      this.totalChunksCount = 0;
-      
-      this.isReadStopping = false;
-    },
+  /* 停掉当前音频 */
+  if (this.currentReadAudio) {
+    this.currentReadAudio.pause();
+    this.currentReadAudio = null;
+  }
+  
+  this.sendTTSStatusToVRM('stopSpeaking', {});
+  
+  /* 重置音频计数状态 */
+  this.isAudioSynthesizing = false;
+  this.audioChunksCount = 0;
+  this.totalChunksCount = 0;
+  
+  this.isReadStopping = false;
+},
 
-    stopTTSActivities() {
-      // 停止朗读流程
-      if (this.isReadRunning) {
-        this.isReadStopping = true;
-        this.isReadRunning = false;
-        this.readState.isPlaying = false;
-        /* 停掉当前音频 */
-        if (this.currentAudio) {
-          this.currentAudio.pause();
-          this.currentAudio = null;
-        }
-        this.sendTTSStatusToVRM('stopSpeaking', {});
-        
-        /* 重置音频计数状态 - 只重置运行状态，保留计数 */
-        this.isAudioSynthesizing = false;
-        // 不要重置计数，这样用户可以下载已生成的部分
-        // this.audioChunksCount = 0;
-        // this.totalChunksCount = 0;
-        
-        this.isReadStopping = false;
-      }
-      
-      // 停止音频转换流程
-      if (this.isConvertingAudio) {
-        this.isConvertStopping = true;
-        this.isConvertingAudio = false;
-        
-        /* 重置转换状态 - 只重置运行状态，保留计数 */
-        this.isAudioSynthesizing = false;
-        
-        /* 新增：显示停止通知 */
-        showNotification(this.t('audioConversionStopped'));
-        
-        this.isConvertStopping = false;
-      }
-    },
+// 修改 stopTTSActivities 方法
+stopTTSActivities() {
+  // 停止朗读流程
+  if (this.isReadRunning) {
+    this.isReadStopping = true;
+    this.isReadRunning = false;
+    this.isReadPaused = false;  // 重置暂停状态
+    this.readState.isPlaying = false;
+    
+    /* 停掉当前音频 */
+    if (this.currentReadAudio) {
+      this.currentReadAudio.pause();
+      this.currentReadAudio = null;
+    }
+    this.sendTTSStatusToVRM('stopSpeaking', {});
+    
+    /* 重置音频计数状态 */
+    this.isAudioSynthesizing = false;
+    
+    this.isReadStopping = false;
+  }
+  
+  // 停止音频转换流程（保持原有）
+  if (this.isConvertingAudio) {
+    this.isConvertStopping = true;
+    this.isConvertingAudio = false;
+    this.isAudioSynthesizing = false;
+    showNotification(this.t('audioConversionStopped'));
+    this.isConvertStopping = false;
+  }
+},
   /* ===============  复用 / 微调 TTS 流程  =============== */
   async startReadTTSProcess() {
     let max_concurrency = this.ttsSettings.maxConcurrency || 1;
@@ -7917,6 +7958,7 @@ async deleteGaussSceneOption(sceneId) {
   },
 
   async checkReadAudioPlayback() {
+    if (this.isReadPaused) return;
     if (!this.isReadRunning || this.readState.isPlaying) return;
 
     const curIdx = this.readState.currentChunk;
@@ -7939,7 +7981,7 @@ async deleteGaussSceneOption(sceneId) {
     console.log(`Playing read audio chunk ${curIdx}`);
     this.scrollToCurrentChunk(curIdx);
     try {
-      this.currentAudio = new Audio(audioChunk.url);
+      this.currentReadAudio = new Audio(audioChunk.url);
 
       this.sendTTSStatusToVRM('startSpeaking', {
         audioDataUrl: this.cur_audioDatas[curIdx],
@@ -7951,12 +7993,12 @@ async deleteGaussSceneOption(sceneId) {
       });
 
       await new Promise(resolve => {
-        this.currentAudio.onended = () => {
+        this.currentReadAudio.onended = () => {
           this.sendTTSStatusToVRM('chunkEnded', { chunkIndex: curIdx });
           resolve();
         };
-        this.currentAudio.onerror = resolve;
-        this.currentAudio.play().catch(console.error);
+        this.currentReadAudio.onerror = resolve;
+        this.currentReadAudio.play().catch(console.error);
       });
     } catch (e) {
       console.error('Read playback error', e);

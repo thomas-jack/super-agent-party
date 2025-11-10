@@ -1652,4 +1652,6 @@ main();`,
     readSettings: {
       delay:2000
     },
+    isReadPaused: false, 
+    currentReadAudio: null,
 };
