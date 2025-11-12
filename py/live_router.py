@@ -12,6 +12,7 @@ import py.blivedm as blivedm
 import py.blivedm.models.web as web_models
 import py.blivedm.models.open_live as open_models
 from py.ytdm import YouTubeDMClient
+from py.twitch_service import start_twitch_task, stop_twitch_task
 # ==========================  关键：一次写死前缀 ==========================
 router = APIRouter(prefix="/api/live", tags=["live"])
 # ====================================================================
@@ -22,6 +23,7 @@ live_thread = None
 current_loop = None
 stop_event = None  # 新增：用于通知线程停止
 yt_client: Optional[YouTubeDMClient] = None 
+twitch_task = None
 # Pydantic模型
 class LiveConfig(BaseModel):
     bilibili_enabled: bool = False
@@ -35,6 +37,9 @@ class LiveConfig(BaseModel):
     youtube_enabled: bool = False
     youtube_video_id: str = ""
     youtube_api_key: str = ""
+    twitch_enabled: bool = False
+    twitch_channel: str = ""
+    twitch_access_token: str = ""
 
 class LiveConfigRequest(BaseModel):
     config: LiveConfig
@@ -73,7 +78,7 @@ manager = ConnectionManager()
 # API路由
 @router.post("/start", response_model=ApiResponse)
 async def start_live(request: LiveConfigRequest):
-    global live_client, live_thread, stop_event, yt_client, current_loop
+    global live_client, live_thread, stop_event, yt_client, current_loop,twitch_task
 
     config = request.config
 
@@ -123,6 +128,25 @@ async def start_live(request: LiveConfigRequest):
             )
             yt_client.start()
         
+        if config.twitch_enabled:
+            if twitch_task is not None:
+                return ApiResponse(success=False, message="Twitch 监听已在运行")
+            if not (config.twitch_access_token and config.twitch_channel):
+                return ApiResponse(success=False, message="请填写 Twitch token 与频道")
+
+            async def _twitch_on_msg(chan, user, msg):
+                await manager.broadcast({
+                    "type": "message",
+                    "content": f"{user} send: {msg}",
+                    "danmu_type": "danmaku",
+                    "platform": "twitch"
+                })
+
+            # 启动 Twitch 任务
+            twitch_task = asyncio.create_task(
+                start_twitch_task(config.dict(), _twitch_on_msg)
+            )
+
         # 等待一下确保客户端启动
         await asyncio.sleep(0.5)
         
@@ -132,7 +156,7 @@ async def start_live(request: LiveConfigRequest):
 
 @router.post("/stop", response_model=ApiResponse)
 async def stop_live():
-    global live_client, live_thread, current_loop, stop_event, yt_client
+    global live_client, live_thread, current_loop, stop_event, yt_client,twitch_task
     
     try:
         
@@ -164,16 +188,26 @@ async def stop_live():
                 live_thread.join(timeout=3)
                 if live_thread.is_alive():
                     print("警告: 线程未能在超时时间内结束")
-        
-            # 清理全局变量
-            live_client = None
-            live_thread = None
-            stop_event = None
-        
+
         if yt_client is not None:
             yt_client.stop()
             yt_client = None
+            
+        if twitch_task:
+            await stop_twitch_task()
+            twitch_task.cancel()
+            try:
+                await twitch_task
+            except asyncio.CancelledError:
+                pass
+            twitch_task = None
+
+        # 清理全局变量
+        live_client = None
+        live_thread = None
+        stop_event = None
         current_loop = None
+
         print("直播监听停止完成")
         return ApiResponse(success=True, message="直播监听停止成功")
         

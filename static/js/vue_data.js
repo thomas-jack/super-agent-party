@@ -1253,6 +1253,9 @@ let vue_data = {
       youtube_enabled: false,
       youtube_vedio_id:  "",
       youtube_api_key:  "",
+      twitch_enabled: false,
+      twitch_channel: "",
+      twitch_access_token: "",
     },
     WXBotConfig: {
       WXAgent:'super-model',

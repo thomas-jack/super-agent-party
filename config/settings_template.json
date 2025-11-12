@@ -336,7 +336,10 @@
       "bilibili_ROOM_OWNER_AUTH_CODE": "",
       "youtube_enabled": false,
       "youtube_vedio_id":  "",
-      "youtube_api_key":  ""
+      "youtube_api_key":  "",
+      "twitch_enabled": false,
+      "twitch_channel": "",
+      "twitch_access_token": ""
     },
     "WXBotConfig": {
       "WXAgent":"super-model",

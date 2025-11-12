@@ -9651,6 +9651,123 @@ if ('serviceWorker' in navigator) {
                           </div>
                         </el-form>
                       </el-tab-pane>
+                      <el-tab-pane :label="t('twitchLive')" name="twitch" key="twitch">
+                        <el-form class="settings-form" :model="liveConfig" label-position="top">
+                          <div class="tool-item">
+                            <!-- 直播配置头部 -->
+                            <div class="tool-header" style="display: flex; justify-content: space-between; align-items: center;">
+                              <span>
+                                <el-icon><i class="fa-solid fa-video"></i></el-icon>
+                                {{ t('live_stream_bot') }}
+                              </span>
+                              <div>
+                                <!-- 启动按钮 -->
+                                <el-tooltip :content="t('start_live')" placement="top">
+                                  <el-button 
+                                    type="primary" 
+                                    @click="startLive" 
+                                    :disabled="!isLiveConfigValid || isLiveRunning || isLiveStarting"
+                                    circle
+                                  >
+                                    <template v-if="isLiveStarting">
+                                      <i class="fa-solid fa-spinner fa-spin"></i>
+                                    </template>
+                                    <template v-else>
+                                      <i class="fa-solid fa-play"></i>
+                                    </template>
+                                  </el-button>
+                                </el-tooltip>
+                                
+                                <!-- 停止按钮 -->
+                                <el-tooltip :content="t('stop_live')" placement="top">
+                                  <el-button 
+                                    type="danger" 
+                                    @click="stopLive" 
+                                    :disabled="!isLiveRunning || isLiveStopping"
+                                    circle
+                                  >
+                                    <template v-if="isLiveStopping">
+                                      <i class="fa-solid fa-spinner fa-spin"></i>
+                                    </template>
+                                    <template v-else>
+                                      <i class="fa-solid fa-stop"></i>
+                                    </template>
+                                  </el-button>
+                                </el-tooltip>
+                                
+                                <!-- 重载按钮 -->
+                                <el-tooltip :content="t('reload_live')" placement="top">
+                                  <el-button 
+                                    @click="reloadLiveConfig" 
+                                    :disabled="!isLiveRunning || isLiveReloading"
+                                    circle
+                                  >
+                                    <template v-if="isLiveReloading">
+                                      <i class="fa-solid fa-rotate fa-spin"></i>
+                                    </template>
+                                    <template v-else>
+                                      <i class="fa-solid fa-rotate"></i>
+                                    </template>
+                                  </el-button>
+                                </el-tooltip>
+                              </div>
+                            </div>
+
+                            <!-- Twitch 配置 -->
+                            <div class="tool-item">
+                              <div class="tool-header">
+                                <div class="header-left">
+                                  <span>
+                                    Twitch
+                                    <el-link
+                                      type="primary"
+                                      :underline="false"
+                                      href="https://twitchtokengenerator.com"
+                                      target="_blank"
+                                    >
+                                      <el-icon class="mr-1"><i class="fa-solid fa-key"></i></el-icon>
+                                      {{ t('getTwitchAccessToken') }}
+                                    </el-link>
+                                  </span>
+                                </div>
+                                <el-switch
+                                  v-model="liveConfig.twitch_enabled"
+                                  @change="autoSaveSettings"
+                                />
+                              </div>
+
+                              <div class="tool-content">
+                                <el-form-item :label="t('twitchChannel')">
+                                  <el-input
+                                    v-model="liveConfig.twitch_channel"
+                                    :placeholder="t('twitchChannelPlaceholder')"
+                                    class="full-width-input"
+                                    @change="autoSaveSettings"
+                                  />
+                                </el-form-item>
+
+                                <el-form-item :label="t('twitchAccessToken')">
+                                  <el-input
+                                    v-model="liveConfig.twitch_access_token"
+                                    :placeholder="t('twitchAccessTokenPlaceholder')"
+                                    class="full-width-input"
+                                    show-password
+                                    @change="autoSaveSettings"
+                                  />
+                                </el-form-item>
+
+                                <el-alert type="info" :closable="false" class="mb-2">
+                                  <template #default>
+                                    <div class="alert-content">
+                                      {{ t('twitchHelp') }}
+                                    </div>
+                                  </template>
+                                </el-alert>
+                              </div>
+                            </div>
+                          </div>
+                        </el-form>
+                      </el-tab-pane>
                     </el-tabs>
                   </div>
                 </div>

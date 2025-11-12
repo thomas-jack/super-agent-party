@@ -409,6 +409,10 @@ const app = Vue.createApp({
           return this.liveConfig.youtube_video_id !== '' &&
           this.liveConfig.youtube_api_key !== '';
         }
+        else if (this.liveConfig.twitch_enabled) {
+          return this.liveConfig.twitch_channel !== '' &&
+          this.liveConfig.twitch_access_token !== '';
+        }
         return false;
     },
     updateButtonText() {
