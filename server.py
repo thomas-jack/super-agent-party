@@ -3,6 +3,7 @@ import base64
 from datetime import datetime, timedelta, timezone
 import glob
 from io import BytesIO
+import io
 import os
 from pathlib import Path
 import pickle
@@ -4648,17 +4649,29 @@ async def text_to_speech(request: Request):
         text = data['text']
         if text == "":
             return JSONResponse(status_code=400, content={"error": "Text is empty"})
+        
+        # 飞书专用：强制使用opus格式
+        is_feishu = data.get('mobile_optimized', False)
+        target_format = "opus" if is_feishu else data.get('format', 'mp3')
+        
         new_voice = data.get('voice','default')
         tts_settings = data['ttsSettings']
         if new_voice in tts_settings['newtts'] and new_voice!='default':
             tts_settings = tts_settings['newtts'][new_voice]
         index = data['index']
         tts_engine = tts_settings.get('engine', 'edgetts')
+        
+        print(f"TTS请求 - 引擎: {tts_engine}, 格式: {target_format}, 飞书优化: {is_feishu}")
+        
         if tts_engine == 'edgetts':
             edgettsLanguage = tts_settings.get('edgettsLanguage', 'zh-CN')
             edgettsVoice = tts_settings.get('edgettsVoice', 'XiaoyiNeural')
             rate = tts_settings.get('edgettsRate', 1.0)
             full_voice_name = f"{edgettsLanguage}-{edgettsVoice}"
+            
+            # 飞书优化：稍微降低语速
+            if is_feishu:
+                rate = min(rate * 0.95, 1.1)
             
             rate_text = "+0%"
             if rate >= 1.0:
@@ -4668,72 +4681,113 @@ async def text_to_speech(request: Request):
                 rate_pent = (1.0 - rate) * 100
                 rate_text = f"-{int(rate_pent)}%"
             
-            print(f"Using Edge TTS with voice: {full_voice_name}")
-            
-            # 创建生成器函数用于流式传输
             async def generate_audio():
                 communicate = edge_tts.Communicate(text, full_voice_name, rate=rate_text)
+                
+                # 收集所有音频数据
+                audio_chunks = []
                 async for chunk in communicate.stream():
                     if chunk["type"] == "audio":
-                        yield chunk["data"]
+                        audio_chunks.append(chunk["data"])
+                
+                full_audio = b''.join(audio_chunks)
+                
+                # 如果需要opus格式，进行转换
+                if target_format == "opus":
+                    opus_audio = await convert_to_opus_simple(full_audio)
+                    # 分块返回
+                    chunk_size = 4096
+                    for i in range(0, len(opus_audio), chunk_size):
+                        yield opus_audio[i:i + chunk_size]
+                else:
+                    # 原始mp3格式
+                    chunk_size = 4096
+                    for i in range(0, len(full_audio), chunk_size):
+                        yield full_audio[i:i + chunk_size]
             
-            # 返回流式响应
+            # 设置正确的媒体类型和文件名
+            if target_format == "opus":
+                media_type = "audio/ogg"  # opus通常包装在ogg容器中
+                filename = f"tts_{index}.opus"
+            else:
+                media_type = "audio/mpeg"
+                filename = f"tts_{index}.mp3"
+            
             return StreamingResponse(
                 generate_audio(),
-                media_type="audio/mpeg",
+                media_type=media_type,
                 headers={
-                    "Content-Disposition": f"inline; filename=tts_{index}.mp3",
-                    "X-Audio-Index": str(index)
+                    "Content-Disposition": f"inline; filename={filename}",
+                    "X-Audio-Index": str(index),
+                    "X-Audio-Format": target_format
                 }
             )
+            
         elif tts_engine == 'customTTS':
-            # 构造 GET 请求参数
+            # Custom TTS处理
             params = {
                 "text": text,
                 "speaker": tts_settings.get('customTTSspeaker', ''),
-                "speed":tts_settings.get('customTTSspeed', 1.0)
+                "speed": tts_settings.get('customTTSspeed', 1.0)
             }
-            # 按行分割
+            
+            if is_feishu:
+                params["speed"] = min(params["speed"] * 0.95, 1.2)
+            
             custom_tts_servers_list = tts_settings.get('customTTSserver', 'http://127.0.0.1:9880').split('\n')
-            if len(custom_tts_servers_list) == 1:
-                custom_tt_server = custom_tts_servers_list[0]
-            else:
-                # 移除空行
-                custom_tts_servers_list = [server for server in custom_tts_servers_list if server.strip()]
-                # 根据index选择服务器
-                custom_tt_server = custom_tts_servers_list[index % len(custom_tts_servers_list)]
+            custom_tts_servers_list = [server for server in custom_tts_servers_list if server.strip()]
+            custom_tt_server = custom_tts_servers_list[index % len(custom_tts_servers_list)]
+            
             async def generate_audio():
                 async with httpx.AsyncClient(timeout=60.0) as client:
                     try:
-                        # 发起流式 GET 请求到本地 Custom TTS 服务
-                        async with client.stream(
-                            "GET",
-                            custom_tt_server,
-                            params=params
-                        ) as response:
+                        async with client.stream("GET", custom_tt_server, params=params) as response:
                             response.raise_for_status()
+                            
+                            # 收集音频数据
+                            audio_chunks = []
                             async for chunk in response.aiter_bytes():
-                                yield chunk
+                                audio_chunks.append(chunk)
+                            
+                            full_audio = b''.join(audio_chunks)
+                            
+                            # 转换为opus
+                            if target_format == "opus":
+                                opus_audio = await convert_to_opus_simple(full_audio)
+                                chunk_size = 4096
+                                for i in range(0, len(opus_audio), chunk_size):
+                                    yield opus_audio[i:i + chunk_size]
+                            else:
+                                chunk_size = 4096
+                                for i in range(0, len(full_audio), chunk_size):
+                                    yield full_audio[i:i + chunk_size]
+                                    
                     except httpx.RequestError as e:
-                        print(f"Custom TTS 请求失败: {e}")
                         raise HTTPException(status_code=502, detail=f"Custom TTS 连接失败: {str(e)}")
+
+            if target_format == "opus":
+                media_type = "audio/ogg"
+                filename = f"tts_{index}.opus"
+            else:
+                media_type = "audio/wav"
+                filename = f"tts_{index}.wav"
 
             return StreamingResponse(
                 generate_audio(),
-                media_type="audio/wav",
+                media_type=media_type,
                 headers={
-                    "Content-Disposition": f"inline; filename=tts_{index}.wav",
-                    "X-Audio-Index": str(index)
+                    "Content-Disposition": f"inline; filename={filename}",
+                    "X-Audio-Index": str(index),
+                    "X-Audio-Format": target_format
                 }
             )
-        # GSV处理逻辑
+            
         elif tts_engine == 'GSV':
+            # GSV本身可以直接生成opus
             audio_path = os.path.join(UPLOAD_FILES_DIR, tts_settings.get('gsvRefAudioPath', ''))
             if not os.path.exists(audio_path):
-                # 如果音频文件不存在，则认为是相对路径
                 audio_path = tts_settings.get('gsvRefAudioPath', '')
 
-            # 构建核心请求参数
             gsv_params = {
                 "text": text,
                 "text_lang": tts_settings.get('gsvTextLang', 'zh'),
@@ -4744,44 +4798,44 @@ async def text_to_speech(request: Request):
                 "sample_steps": tts_settings.get('gsvSample_steps', 4),
                 "streaming_mode": True,
                 "text_split_method": "cut0",
-                "media_type": "ogg",
+                "media_type": "opus" if target_format == "opus" else "ogg",
                 "batch_size": 20,
                 "seed": 42,
             }
-            # 按行分割
+            
+            if is_feishu:
+                gsv_params["speed_factor"] = min(gsv_params["speed_factor"] * 0.95, 1.1)
+            
             gsvServer_list = tts_settings.get('gsvServer', 'http://127.0.0.1:9880').split('\n')
-            if len(gsvServer_list) == 1:
-                gsvServer = gsvServer_list[0]
-            else:
-                # 移除空行
-                gsvServer_list = [server for server in gsvServer_list if server.strip()]
-                # 根据index选择服务器
-                gsvServer = gsvServer_list[index % len(gsvServer_list)]
+            gsvServer_list = [server for server in gsvServer_list if server.strip()]
+            gsvServer = gsvServer_list[index % len(gsvServer_list)]
+                
             async def generate_audio():
                 async with httpx.AsyncClient(timeout=60.0) as client:
                     try:
-                        async with client.stream(
-                            "POST",
-                            f"{gsvServer}/tts",
-                            json=gsv_params
-                        ) as response:
+                        async with client.stream("POST", f"{gsvServer}/tts", json=gsv_params) as response:
                             response.raise_for_status()
                             async for chunk in response.aiter_bytes():
                                 yield chunk
                     except httpx.HTTPStatusError as e:
-                        error_detail = f"GSV服务错误: {e.response.status_code} - {await e.response.text()}"
+                        error_detail = f"GSV服务错误: {e.response.status_code}"
                         raise HTTPException(status_code=502, detail=error_detail)
+            
+            media_type = "audio/ogg"
+            filename = f"tts_{index}.opus" if target_format == "opus" else f"tts_{index}.ogg"
             
             return StreamingResponse(
                 generate_audio(),
-                media_type="audio/ogg",
+                media_type=media_type,
                 headers={
-                    "Content-Disposition": f"inline; filename=tts_{index}.ogg",
-                    "X-Audio-Index": str(index)
+                    "Content-Disposition": f"inline; filename={filename}",
+                    "X-Audio-Index": str(index),
+                    "X-Audio-Format": target_format
                 }
             )
+            
         elif tts_engine == 'openai':
-            # 从设置获取OpenAI TTS参数
+            # OpenAI TTS处理
             openai_config = {
                 'api_key': tts_settings.get('api_key', ''),
                 'model': tts_settings.get('model', 'tts-1'),
@@ -4792,37 +4846,30 @@ async def text_to_speech(request: Request):
                 'ref_audio': tts_settings.get('gsvRefAudioPath', '')
             }
             
-            # 验证API密钥
             if not openai_config['api_key']:
                 raise HTTPException(status_code=400, detail="OpenAI API密钥未配置")
             
-            print(f"Using OpenAI TTS with model: {openai_config['model']}, voice: {openai_config['voice']}")
+            speed = float(openai_config['speed'])
+            if is_feishu:
+                speed = min(speed * 0.95, 1.2)
             
-            # 速度限制在0.25到4.0之间
-            speed = max(0.25, min(4.0, float(openai_config['speed'])))
+            speed = max(0.25, min(4.0, speed))
 
             async def generate_audio():
                 try:
-                    # 使用异步OpenAI客户端
                     client = AsyncOpenAI(
                         api_key=openai_config['api_key'],
                         base_url=openai_config['base_url']
                     )
+                    
                     if openai_config['ref_audio']:
-                        # Option 1: Use a local audio file (convert to base64 data URI)
-                        audio_file_path = os.path.join(UPLOAD_FILES_DIR, openai_config['ref_audio'])  # Change this to your local file path
-                        
-                        # Read the audio file and encode as base64
+                        audio_file_path = os.path.join(UPLOAD_FILES_DIR, openai_config['ref_audio'])
                         with open(audio_file_path, "rb") as audio_file:
                             audio_data = audio_file.read()
-                        
-                        # Get the file extension/type (e.g., 'mp3', 'wav')
-                        audio_type = Path(audio_file_path).suffix[1:]  # removes the dot
-                        
-                        # Create proper data URI format
+                        audio_type = Path(audio_file_path).suffix[1:]
                         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
                         audio_uri = f"data:audio/{audio_type};base64,{audio_base64}"
-                        # 创建语音请求
+                        
                         response = await client.audio.speech.create(
                             model=openai_config['model'],
                             voice=None,
@@ -4833,7 +4880,6 @@ async def text_to_speech(request: Request):
                             } 
                         )
                     else:
-                        # 创建语音请求
                         response = await client.audio.speech.create(
                             model=openai_config['model'],
                             voice=openai_config['voice'],
@@ -4841,24 +4887,35 @@ async def text_to_speech(request: Request):
                             speed=speed
                         )
                     
-                    # 获取整个响应内容并分块返回
                     content = await response.aread()
-                    chunk_size = 4096  # 4KB chunks
+                    
+                    # 转换为opus
+                    if target_format == "opus":
+                        opus_content = await convert_to_opus_simple(content)
+                        content = opus_content
+                    
+                    chunk_size = 4096
                     for i in range(0, len(content), chunk_size):
                         yield content[i:i + chunk_size]
-                        await asyncio.sleep(0)  # Allow other tasks to run
+                        await asyncio.sleep(0)
                         
                 except Exception as e:
-                    print(f"OpenAI TTS error: {str(e)}")
                     raise HTTPException(status_code=500, detail=f"OpenAI TTS错误: {str(e)}")
             
-            # 返回流式响应
+            if target_format == "opus":
+                media_type = "audio/ogg"
+                filename = f"tts_{index}.opus"
+            else:
+                media_type = "audio/mpeg"
+                filename = f"tts_{index}.mp3"
+            
             return StreamingResponse(
                 generate_audio(),
-                media_type="audio/mpeg",
+                media_type=media_type,
                 headers={
-                    "Content-Disposition": f"inline; filename=tts_{index}.mp3",
-                    "X-Audio-Index": str(index)
+                    "Content-Disposition": f"inline; filename={filename}",
+                    "X-Audio-Index": str(index),
+                    "X-Audio-Format": target_format
                 }
             )
         
@@ -4866,6 +4923,56 @@ async def text_to_speech(request: Request):
     
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"服务器内部错误: {str(e)}"})
+
+
+async def convert_to_opus_simple(audio_data):
+    """使用pydub将音频转换为opus格式（适合飞书）"""
+    try:
+        from pydub import AudioSegment
+        
+        # 从字节数据创建音频对象
+        audio_io = io.BytesIO(audio_data)
+        
+        # 尝试自动检测格式
+        try:
+            audio = AudioSegment.from_file(audio_io)
+        except:
+            # 如果失败，尝试作为MP3处理
+            audio_io.seek(0)
+            try:
+                audio = AudioSegment.from_mp3(audio_io)
+            except:
+                # 最后尝试WAV
+                audio_io.seek(0)
+                audio = AudioSegment.from_wav(audio_io)
+        
+        # 设置飞书推荐的opus参数
+        audio = audio.set_frame_rate(16000)  # 16kHz采样率
+        audio = audio.set_channels(1)        # 单声道
+        
+        # 导出为opus格式，使用飞书兼容的参数
+        output_io = io.BytesIO()
+        audio.export(
+            output_io, 
+            format="opus",
+            codec="libopus",
+            parameters=[
+                "-b:a", "64k",           # 64kbps码率
+                "-application", "voip",   # 语音通话优化
+                "-compression_level", "10"  # 最高压缩
+            ]
+        )
+        
+        opus_data = output_io.getvalue()
+        logging.info(f"成功转换为opus格式，原始: {len(audio_data)}B -> opus: {len(opus_data)}B")
+        return opus_data
+        
+    except ImportError:
+        logging.error("pydub未安装，无法转换为opus格式")
+        return audio_data
+    except Exception as e:
+        logging.error(f"转换opus格式失败: {e}")
+        return audio_data
 
 # 添加状态存储
 mcp_status = {}

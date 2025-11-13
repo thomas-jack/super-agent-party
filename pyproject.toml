@@ -59,4 +59,5 @@ dependencies = [
     "pip-licenses>=5.5.0",
     "google-api-python-client>=2.179.0",
     "lark-oapi>=1.4.24",
+    "pydub>=0.25.1",
 ]

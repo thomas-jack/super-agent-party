@@ -872,77 +872,150 @@ class FeishuClient:
 
 
     async def _send_voice(self, original_msg, text):
+        """发送语音消息（opus专用版本）"""
         try:
             from py.get_setting import load_settings
             settings = await load_settings()
             tts_settings = settings.get("ttsSettings", {})
-            index = 0  # 默认使用第一个TTS服务器
+            index = 0
 
+            # 专门为飞书请求opus格式
             payload = {
                 "text": text,
                 "voice": "default",
                 "ttsSettings": tts_settings,
-                "index": index
+                "index": index,
+                "mobile_optimized": True,  # 飞书优化标志
+                "format": "opus"           # 明确请求opus格式
             }
 
-            async with aiohttp.ClientSession() as session:
+            logging.info(f"发送TTS请求（opus格式），文本长度: {len(text)}，引擎: {tts_settings.get('engine', 'edgetts')}")
+
+            timeout = aiohttp.ClientTimeout(total=90, connect=30, sock_read=60)
+            
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(
                     f"http://127.0.0.1:{self.port}/tts",
                     json=payload
                 ) as resp:
                     if resp.status != 200:
                         logging.error(f"TTS 请求失败: {resp.status}")
+                        error_text = await resp.text()
+                        logging.error(f"TTS 错误响应: {error_text}")
+                        await self._send_text(original_msg, "语音生成失败，请稍后重试")
                         return
 
-                    audio_data = await resp.read()
+                    opus_data = await resp.read()
+                    audio_format = resp.headers.get("X-Audio-Format", "unknown")
+                    
+                    logging.info(f"TTS响应成功，opus大小: {len(opus_data) / 1024:.1f}KB，格式: {audio_format}")
 
-                    # 上传语音文件到飞书
-                    audio_file = io.BytesIO(audio_data)
-                    upload_req = CreateFileRequest.builder() \
-                        .request_body(
-                            CreateFileRequestBody.builder()
-                            .file_type("opus")
-                            .file_name("voice.ogg")
-                            .file(audio_file)
-                            .build()
-                        ).build()
+                    if len(opus_data) < 100:
+                        logging.error(f"opus数据异常，大小仅 {len(opus_data)} 字节")
+                        await self._send_text(original_msg, "语音生成异常，请重试")
+                        return
 
-                    upload_resp = self.lark_client.im.v1.file.create(upload_req)
+                    # 检查文件大小（飞书限制）
+                    max_size = 10 * 1024 * 1024  # 10MB
+                    if len(opus_data) > max_size:
+                        logging.error(f"opus文件过大: {len(opus_data) / (1024*1024):.1f}MB")
+                        await self._send_text(original_msg, "语音文件过大，请尝试较短的文本")
+                        return
+
+                    # 上传opus文件到飞书
+                    opus_file = io.BytesIO(opus_data)
+                    
+                    logging.info("开始上传opus语音文件到飞书...")
+                    
+                    try:
+                        upload_req = CreateFileRequest.builder() \
+                            .request_body(
+                                CreateFileRequestBody.builder()
+                                .file_type("opus")           # 飞书要求的opus类型
+                                .file_name("voice.opus")     # opus文件名
+                                .file(opus_file)
+                                .build()
+                            ).build()
+
+                        upload_resp = self.lark_client.im.v1.file.create(upload_req)
+                        
+                    except Exception as upload_error:
+                        logging.error(f"构建opus上传请求失败: {upload_error}")
+                        await self._send_text(original_msg, "语音上传失败，请重试")
+                        return
+
+                    # 检查上传结果
                     if not upload_resp.success():
-                        logging.error(f"上传语音失败: {upload_resp.msg}")
+                        logging.error(f"上传opus语音失败: {upload_resp.code} - {upload_resp.msg}")
+                        
+                        # 详细的错误处理
+                        if upload_resp.code == 234001:
+                            await self._send_text(original_msg, "语音格式错误，请联系管理员")
+                        elif upload_resp.code == 234002:
+                            await self._send_text(original_msg, "语音文件过大，请尝试较短的文本")
+                        elif upload_resp.code == 99991663:
+                            await self._send_text(original_msg, "机器人权限不足，请检查应用权限")
+                        else:
+                            await self._send_text(original_msg, f"语音上传失败: {upload_resp.msg}")
                         return
 
                     file_key = upload_resp.data.file_key
+                    logging.info(f"opus语音上传成功，file_key: {file_key}")
 
                     # 发送语音消息
                     chat_type = original_msg.chat_type
-                    if chat_type == "p2p":
-                        req = CreateMessageRequest.builder() \
-                            .receive_id_type("chat_id") \
-                            .request_body(
-                                CreateMessageRequestBody.builder()
-                                .receive_id(original_msg.chat_id)
-                                .msg_type("audio")
-                                .content(json.dumps({"file_key": file_key}))
-                                .build()
-                            ).build()
-                        resp = self.lark_client.im.v1.message.create(req)
-                    else:
-                        req = ReplyMessageRequest.builder() \
-                            .message_id(original_msg.message_id) \
-                            .request_body(
-                                ReplyMessageRequestBody.builder()
-                                .msg_type("audio")
-                                .content(json.dumps({"file_key": file_key}))
-                                .build()
-                            ).build()
-                        resp = self.lark_client.im.v1.message.reply(req)
+                    audio_content = json.dumps({"file_key": file_key})
+                    
+                    try:
+                        if chat_type == "p2p":
+                            req = CreateMessageRequest.builder() \
+                                .receive_id_type("chat_id") \
+                                .request_body(
+                                    CreateMessageRequestBody.builder()
+                                    .receive_id(original_msg.chat_id)
+                                    .msg_type("audio")
+                                    .content(audio_content)
+                                    .build()
+                                ).build()
+                            
+                            send_resp = self.lark_client.im.v1.message.create(req)
+                        else:
+                            req = ReplyMessageRequest.builder() \
+                                .message_id(original_msg.message_id) \
+                                .request_body(
+                                    ReplyMessageRequestBody.builder()
+                                    .msg_type("audio")
+                                    .content(audio_content)
+                                    .build()
+                                ).build()
+                            
+                            send_resp = self.lark_client.im.v1.message.reply(req)
 
-                    if not resp.success():
-                        logging.error(f"发送语音失败: {resp.code} {resp.msg}")
+                        if not send_resp.success():
+                            logging.error(f"发送opus语音消息失败: {send_resp.code} - {send_resp.msg}")
+                            
+                            if send_resp.code == 230002:
+                                await self._send_text(original_msg, "语音消息格式不支持")
+                            elif send_resp.code == 99991663:
+                                await self._send_text(original_msg, "机器人无发送消息权限")
+                            else:
+                                await self._send_text(original_msg, f"语音发送失败: {send_resp.msg}")
+                        else:
+                            logging.info(f"opus语音消息发送成功，消息ID: {send_resp.data.message_id}")
 
+                    except Exception as send_error:
+                        logging.error(f"发送opus语音消息异常: {send_error}")
+                        await self._send_text(original_msg, "语音消息发送失败")
+
+        except asyncio.TimeoutError:
+            logging.error("opus TTS请求超时")
+            await self._send_text(original_msg, "语音生成超时，请稍后重试")
         except Exception as e:
-            logging.error(f"发送语音异常: {e}")
+            logging.error(f"发送opus语音异常: {e}")
+            import traceback
+            logging.debug(traceback.format_exc())
+            await self._send_text(original_msg, "语音功能暂时不可用，请稍后重试")
+
 
     # 修改 _extract_text_from_post 方法
     def _extract_text_from_post(self, post_content):
