@@ -583,6 +583,66 @@ class FeishuClient:
                 await self._send_text(msg, f"富文本处理失败: {e}")
                 return
         
+        # 音频消息处理
+        elif msg_type == "audio":
+            try:
+                # 解析音频消息内容
+                content_json = json.loads(msg.content)
+                file_key = content_json.get("file_key", "")
+                duration = content_json.get("duration", 0)
+                
+                if not file_key:
+                    await self._send_text(msg, "无效的音频消息")
+                    return
+                
+                logging.info(f"收到音频消息，file_key: {file_key}, duration: {duration}ms")
+                
+                # 下载音频文件
+                res_req = ResReq.builder()\
+                    .message_id(msg.message_id)\
+                    .file_key(file_key)\
+                    .type("file")\
+                    .build()
+                
+                res_resp = self.lark_client.im.v1.message_resource.get(res_req)
+                if not res_resp.success():
+                    await self._send_text(msg, f"下载音频失败：{res_resp.msg}")
+                    return
+                
+                # 获取音频二进制数据
+                audio_data = res_resp.file.read()
+                logging.info(f"音频下载成功，大小: {len(audio_data)} 字节")
+                
+                # 调用本地ASR接口转换为文字
+                transcribed_text = await self._transcribe_audio(audio_data, file_key)
+                
+                if not transcribed_text:
+                    await self._send_text(msg, "语音转文字失败，请重试")
+                    return
+                
+                logging.info(f"语音识别结果: {transcribed_text}")
+                
+                # 将识别结果作为文本消息处理
+                user_text = transcribed_text
+                
+                # 处理快速重启命令（同文本消息）
+                if self.quickRestart and user_text:
+                    if "/重启" in user_text:
+                        self.memoryList[chat_id] = []
+                        await self._send_text(msg, "对话记录已重置。")
+                        return
+                    if "/restart" in user_text:
+                        self.memoryList[chat_id] = []
+                        await self._send_text(msg, "The conversation record has been reset.")
+                        return
+                
+            except Exception as e:
+                logging.error(f"音频处理失败：{e}")
+                import traceback
+                logging.debug(traceback.format_exc())
+                await self._send_text(msg, f"音频处理失败：{e}")
+                return
+
         # 不支持的消息类型
         else:
             await self._send_text(msg, f"暂不支持的消息类型：{msg_type}")
@@ -750,6 +810,66 @@ class FeishuClient:
         except Exception as e:
             logging.error(f"处理消息异常: {e}")
             await self._send_text(msg, f"处理消息失败: {e}")
+
+    async def _transcribe_audio(self, audio_data: bytes, file_key: str) -> str:
+        """调用本地ASR接口转换音频为文字"""
+        try:
+            # 准备音频文件
+            audio_file = io.BytesIO(audio_data)
+            
+            # 根据file_key或其他信息推断音频格式，飞书通常使用ogg或m4a格式
+            # 这里我们让ASR接口自动检测格式
+            filename = f"{file_key}.ogg"  # 飞书音频通常是ogg格式
+            
+            # 准备multipart/form-data请求
+            form_data = aiohttp.FormData()
+            form_data.add_field('audio', 
+                            audio_file, 
+                            filename=filename, 
+                            content_type='audio/ogg')
+            form_data.add_field('format', 'auto')  # 让ASR自动检测格式
+            
+            # 调用本地ASR接口
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"http://127.0.0.1:{self.port}/asr",
+                    data=form_data,
+                    timeout=aiohttp.ClientTimeout(total=60)  # 设置超时时间
+                ) as response:
+                    
+                    if response.status != 200:
+                        logging.error(f"ASR请求失败，状态码: {response.status}")
+                        response_text = await response.text()
+                        logging.error(f"ASR错误响应: {response_text}")
+                        return None
+                    
+                    # 解析响应
+                    result = await response.json()
+                    
+                    if result.get("success", False):
+                        transcribed_text = result.get("text", "").strip()
+                        if transcribed_text:
+                            logging.info(f"ASR识别成功，引擎: {result.get('engine', 'unknown')}, "
+                                    f"格式: {result.get('format', 'unknown')}")
+                            return transcribed_text
+                        else:
+                            logging.warning("ASR识别结果为空")
+                            return None
+                    else:
+                        error_msg = result.get("error", "未知错误")
+                        logging.error(f"ASR识别失败: {error_msg}")
+                        return None
+                        
+        except asyncio.TimeoutError:
+            logging.error("ASR请求超时")
+            return None
+        except Exception as e:
+            logging.error(f"ASR转换异常: {e}")
+            import traceback
+            logging.debug(traceback.format_exc())
+            return None
+
+
 
     async def _send_voice(self, original_msg, text):
         try:

@@ -4237,6 +4237,195 @@ async def asr_websocket_endpoint(websocket: WebSocket):
         if funasr_websocket:
             await funasr_websocket.close()
 
+@app.post("/asr")
+async def asr_transcription(
+    audio: UploadFile = File(...),
+    format: str = Form(default="auto")
+):
+    """
+    HTTP版本的ASR接口
+    支持多种音频格式，根据配置自动选择ASR引擎
+    """
+    try:
+        # 读取上传的音频文件
+        audio_bytes = await audio.read()
+        print(f"Received audio file: {audio.filename}, size: {len(audio_bytes)} bytes")
+        
+        # 自动检测格式（如果用户没有指定）
+        if format == "auto":
+            if audio.filename:
+                file_ext = audio.filename.split('.')[-1].lower()
+                format = file_ext if file_ext in ['wav', 'mp3', 'flac', 'ogg', 'm4a'] else 'wav'
+            else:
+                format = 'wav'
+        
+        # 加载设置
+        settings = await load_settings()
+        asr_settings = settings.get('asrSettings', {})
+        asr_engine = asr_settings.get('engine', 'openai')
+        
+        result = ""
+        
+        if asr_engine == "openai":
+            # OpenAI ASR
+            print("Using OpenAI ASR engine")
+            audio_file = BytesIO(audio_bytes)
+            audio_file.name = f"audio.{format}"
+            
+            client = AsyncOpenAI(
+                api_key=asr_settings.get('api_key', ''),
+                base_url=asr_settings.get('base_url', '') or "https://api.openai.com/v1"
+            )
+            
+            response = await client.audio.transcriptions.create(
+                file=audio_file,
+                model=asr_settings.get('model', 'whisper-1'),
+            )
+            result = response.text
+            
+        elif asr_engine == "funasr":
+            # FunASR（强制使用离线模式）
+            print("Using FunASR engine (offline mode)")
+            result = await funasr_recognize_offline(audio_bytes, asr_settings)
+            
+        elif asr_engine == "sherpa":
+            # Sherpa ASR
+            print("Using Sherpa ASR engine")
+            result = await sherpa_recognize(audio_bytes)
+        
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": f"不支持的ASR引擎: {asr_engine}",
+                    "text": ""
+                }
+            )
+        
+        # 返回识别结果
+        return JSONResponse(
+            content={
+                "success": True,
+                "text": result.strip(),
+                "engine": asr_engine,
+                "format": format
+            }
+        )
+        
+    except Exception as e:
+        print(f"ASR HTTP interface error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(e),
+                "text": ""
+            }
+        )
+
+async def funasr_recognize_offline(audio_data: bytes, funasr_settings: dict) -> str:
+    """
+    FunASR离线识别（专为HTTP接口优化）
+    """
+    try:
+        # 获取FunASR服务器地址
+        funasr_url = funasr_settings.get('funasr_ws_url', 'ws://localhost:10095')
+        hotwords = funasr_settings.get('hotwords', '')
+        if not funasr_url.startswith('ws://') and not funasr_url.startswith('wss://'):
+            funasr_url = f"ws://{funasr_url}"
+        
+        # 连接到FunASR服务器
+        async with websockets.connect(funasr_url) as websocket:
+            print(f"Connected to FunASR server: {funasr_url}")
+            
+            # 1. 发送初始化配置（强制离线模式）
+            init_config = {
+                "chunk_size": [5, 10, 5],
+                "wav_name": "http_client",
+                "is_speaking": True,
+                "chunk_interval": 10,
+                "mode": "offline",  # 强制使用离线模式
+                "hotwords": hotwords_to_json(hotwords),
+                "use_itn": True
+            }
+            
+            await websocket.send(json.dumps(init_config))
+            print("Sent init config for offline mode")
+            
+            # 2. 转换音频数据为PCM16格式
+            pcm_data = convert_audio_to_pcm16(audio_data)
+            print(f"PCM data length: {len(pcm_data)} bytes")
+            
+            # 3. 分块发送音频数据
+            chunk_size = 960  # 30ms的音频数据
+            total_sent = 0
+            
+            while total_sent < len(pcm_data):
+                chunk_end = min(total_sent + chunk_size, len(pcm_data))
+                chunk = pcm_data[total_sent:chunk_end]
+                await websocket.send(chunk)
+                total_sent = chunk_end
+            
+            print(f"Sent all audio data: {total_sent} bytes")
+            
+            # 4. 发送结束信号
+            end_config = {
+                "is_speaking": False,
+            }
+            await websocket.send(json.dumps(end_config))
+            print("Sent end signal")
+            
+            # 5. 等待识别结果
+            result_text = ""
+            timeout_count = 0
+            max_timeout = 300  # 最大等待30秒（HTTP接口可以等待更久）
+            
+            while timeout_count < max_timeout:
+                try:
+                    response = await asyncio.wait_for(websocket.recv(), timeout=0.1)
+                    
+                    try:
+                        json_response = json.loads(response)
+                        print(f"Received response: {json_response}")
+                        
+                        if 'text' in json_response:
+                            text = json_response['text']
+                            if text and text.strip():
+                                result_text += text
+                                print(f"Got text: {text}")
+                            
+                            # 检查是否为最终结果
+                            if json_response.get('is_final', False):
+                                print("Got final result")
+                                break
+                                
+                    except json.JSONDecodeError:
+                        # 忽略非JSON格式的响应
+                        pass
+                        
+                except asyncio.TimeoutError:
+                    timeout_count += 1
+                    continue
+                except websockets.exceptions.ConnectionClosed:
+                    print("WebSocket connection closed")
+                    break
+            
+            if not result_text:
+                print("No recognition result received")
+                return ""
+            
+            return result_text.strip()
+            
+    except Exception as e:
+        print(f"FunASR offline recognition error: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"FunASR识别错误: {str(e)}"
+
 
 async def handle_funasr_response(funasr_websocket, 
                                client_websocket: WebSocket):
