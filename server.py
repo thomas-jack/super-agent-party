@@ -1239,9 +1239,14 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                 content_append(request.messages, 'system', "之前的相关记忆：\n\n" + relevant_memories + "\n\n相关结束\n\n")                    
         request = await tools_change_messages(request, settings)
         chat_vendor = 'OpenAI'
+        reasoner_vendor = 'OpenAI'
         for modelProvider in settings['modelProviders']: 
             if modelProvider['id'] == settings['selectedProvider']:
                 chat_vendor = modelProvider['vendor']
+                break
+        for modelProvider in settings['modelProviders']: 
+            if modelProvider['id'] == settings['reasoner']['selectedProvider']:
+                reasoner_vendor = modelProvider['vendor']
                 break
         if chat_vendor == 'Dify':
             try:
@@ -1272,6 +1277,14 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
             try:
                 extra = {}
                 reasoner_extra = {}
+                if chat_vendor == 'OpenAI':
+                    extra['max_completion_tokens'] = request.max_tokens or settings['max_tokens']
+                else:
+                    extra['max_tokens'] = request.max_tokens or settings['max_tokens']
+                if reasoner_vendor == 'OpenAI':
+                    reasoner_extra['max_completion_tokens'] = settings['reasoner']['max_tokens']
+                else:
+                    reasoner_extra['max_tokens'] = settings['reasoner']['max_tokens']
                 if request.reasoning_effort or settings['reasoning_effort']:
                     extra['reasoning_effort'] = request.reasoning_effort or settings['reasoning_effort']
                 if settings['reasoner']['reasoning_effort'] is not None:
@@ -1638,7 +1651,6 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                             model=settings['reasoner']['model'],
                             messages=msg,
                             stream=True,
-                            max_tokens=settings['reasoner']['max_tokens'], # 根据实际情况调整
                             stop=settings['reasoner']['stop_words'],
                             temperature=settings['reasoner']['temperature'],
                             **reasoner_extra
@@ -1684,7 +1696,6 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                         temperature=request.temperature,
                         tools=tools,
                         stream=True,
-                        max_tokens=request.max_tokens or settings['max_tokens'],
                         top_p=request.top_p or settings['top_p'],
                         extra_body = extra_params, # 其他参数
                         **extra
@@ -1695,7 +1706,6 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                         messages=msg,  # 添加图片信息到消息
                         temperature=request.temperature,
                         stream=True,
-                        max_tokens=request.max_tokens or settings['max_tokens'],
                         top_p=request.top_p or settings['top_p'],
                         extra_body = extra_params, # 其他参数
                         **extra
@@ -2276,7 +2286,6 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                                 model=settings['reasoner']['model'],
                                 messages=msg,
                                 stream=True,
-                                max_tokens=settings['reasoner']['max_tokens'], # 根据实际情况调整
                                 stop=settings['reasoner']['stop_words'],
                                 temperature=settings['reasoner']['temperature']
                             )
@@ -2312,7 +2321,6 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                             temperature=request.temperature,
                             tools=tools,
                             stream=True,
-                            max_tokens=request.max_tokens or settings['max_tokens'],
                             top_p=request.top_p or settings['top_p'],
                             extra_body = extra_params, # 其他参数
                             **extra
@@ -2323,7 +2331,6 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                             messages=msg,  # 添加图片信息到消息
                             temperature=request.temperature,
                             stream=True,
-                            max_tokens=request.max_tokens or settings['max_tokens'],
                             top_p=request.top_p or settings['top_p'],
                             extra_body = extra_params, # 其他参数
                             **extra
@@ -2980,9 +2987,14 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
             kb_list = []
         request = await tools_change_messages(request, settings)
         chat_vendor = 'OpenAI'
+        reasoner_vendor = 'OpenAI'
         for modelProvider in settings['modelProviders']: 
             if modelProvider['id'] == settings['selectedProvider']:
                 chat_vendor = modelProvider['vendor']
+                break
+        for modelProvider in settings['modelProviders']: 
+            if modelProvider['id'] == settings['reasoner']['selectedProvider']:
+                reasoner_vendor = modelProvider['vendor']
                 break
         if chat_vendor == 'Dify':
             try:
@@ -3053,7 +3065,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                 model=model,
                 messages=deepsearch_messages,
                 temperature=0.5, 
-                max_tokens=512,
                 extra_body = extra_params, # 其他参数
             )
             user_prompt = response.choices[0].message.content
@@ -3074,6 +3085,14 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
             msg = await images_add_in_messages(reasoner_messages, images,settings)   
             extra = {}
             reasoner_extra = {}
+            if chat_vendor == 'OpenAI':
+                extra['max_completion_tokens'] = request.max_tokens or settings['max_tokens']
+            else:
+                extra['max_tokens'] = request.max_tokens or settings['max_tokens']
+            if reasoner_vendor == 'OpenAI':
+                reasoner_extra['max_completion_tokens'] = settings['reasoner']['max_tokens']
+            else:
+                reasoner_extra['max_tokens'] = settings['reasoner']['max_tokens']
             if request.reasoning_effort or settings['reasoning_effort']:
                 extra['reasoning_effort'] = request.reasoning_effort or settings['reasoning_effort']
             if settings['reasoner']['reasoning_effort'] is not None:
@@ -3109,7 +3128,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                     model=settings['reasoner']['model'],
                     messages=msg,
                     stream=False,
-                    max_tokens=settings['reasoner']['max_tokens'], # 根据实际情况调整
                     stop=settings['reasoner']['stop_words'],
                     temperature=settings['reasoner']['temperature'],
                     **reasoner_extra
@@ -3137,7 +3155,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                 temperature=request.temperature,
                 tools=tools,
                 stream=False,
-                max_tokens=request.max_tokens or settings['max_tokens'],
                 top_p=request.top_p or settings['top_p'],
                 extra_body = extra_params, # 其他参数
                 **extra
@@ -3148,7 +3165,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                 messages=msg,  # 添加图片信息到消息
                 temperature=request.temperature,
                 stream=False,
-                max_tokens=request.max_tokens or settings['max_tokens'],
                 top_p=request.top_p or settings['top_p'],
                 extra_body = extra_params, # 其他参数
                 **extra
@@ -3349,9 +3365,9 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                         model=settings['reasoner']['model'],
                         messages=msg,
                         stream=False,
-                        max_tokens=settings['reasoner']['max_tokens'], # 根据实际情况调整
                         stop=settings['reasoner']['stop_words'],
-                        temperature=settings['reasoner']['temperature']
+                        temperature=settings['reasoner']['temperature'],
+                        **reasoner_extra
                     )
                     content_prepend(request.messages, 'assistant', reasoner_response.model_dump()['choices'][0]['message']['reasoning_content']) # 可参考的推理过程
             msg = await images_add_in_messages(request.messages, images,settings)
@@ -3362,7 +3378,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                     temperature=request.temperature,
                     tools=tools,
                     stream=False,
-                    max_tokens=request.max_tokens or settings['max_tokens'],
                     top_p=request.top_p or settings['top_p'],
                     extra_body = extra_params, # 其他参数
                     **extra
@@ -3373,7 +3388,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                     messages=msg,  # 添加图片信息到消息
                     temperature=request.temperature,
                     stream=False,
-                    max_tokens=request.max_tokens or settings['max_tokens'],
                     top_p=request.top_p or settings['top_p'],
                     extra_body = extra_params, # 其他参数
                     **extra
@@ -4929,7 +4943,6 @@ from imageio_ffmpeg import get_ffmpeg_exe   # ① 关键：拿到捆绑的 ffmpe
 
 # 让 pydub 使用我们自带的 ffmpeg，而不是去系统 PATH 里找
 AudioSegment.converter = get_ffmpeg_exe()
-print("get_ffmpeg_exe",get_ffmpeg_exe())
 async def convert_to_opus_simple(audio_data):
     """使用pydub将音频转换为opus格式（适合飞书）"""
     try:
