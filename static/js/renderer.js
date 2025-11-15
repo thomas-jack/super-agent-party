@@ -86,6 +86,7 @@ const app = Vue.createApp({
     if (isElectron) {
       window.stopQQBotHandler = this.requestStopQQBotIfRunning;
       window.stopFeishuBotHandler = this.requestFeishuBotStopIfRunning;
+      window.stopDiscordBotHandler = this.requestDiscordBotStopIfRunning;
       window.electronAPI.onWindowState((_, state) => {
         this.isMaximized = state === 'maximized'
       });
@@ -158,6 +159,7 @@ const app = Vue.createApp({
     if (isElectron) {
       delete window.stopQQBotHandler;
       delete window.stopFeishuBotHandler;
+      delete window.stopDiscordBotHandler;
     }
     if (this.ttsWebSocket) {
       this.ttsWebSocket.close();
@@ -397,6 +399,20 @@ const app = Vue.createApp({
     },
     filteredFeishuSeparators() {
       const current = this.feishuBotConfig.separators;
+      const defaults = this.defaultSeparators;
+      const custom = current
+        .filter(s => !defaults.some(d => d.value === s))
+        .map(s => ({
+          label: `(${this.formatSeparator(s)})`,
+          value: s
+        }));
+      return [...this.defaultSeparators, ...custom];
+    },
+    isDiscordBotConfigValid() {
+      return !!this.discordBotConfig.token;
+    },
+    filteredDiscordSeparators() {
+      const current = this.discordBotConfig.separators;
       const defaults = this.defaultSeparators;
       const custom = current
         .filter(s => !defaults.some(d => d.value === s))

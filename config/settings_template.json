@@ -360,6 +360,15 @@
       "quickRestart": true,
       "enableTTS":false
     },
+    "discordBotConfig": {
+      "token": "",
+      "llm_model": "super-model",
+      "memory_limit": 30,
+      "separators": ["。", "\n", "？", "！"],
+      "reasoning_visible": true,
+      "quick_restart": true,
+      "enable_tts": false
+    },
     "VRMConfig": {
       "name": "default",
       "enabledExpressions": false,

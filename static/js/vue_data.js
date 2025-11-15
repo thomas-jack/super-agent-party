@@ -1193,6 +1193,19 @@ let vue_data = {
     isFeishuStarting: false,
     isFeishuStopping: false,
     isFeishuReloading: false,
+    discordBotConfig: {
+      token: '',
+      llm_model: 'super-model',
+      memory_limit: 30,
+      separators: ['。', '\n', '？', '！'],
+      reasoning_visible: true,
+      quick_restart: true,
+      enable_tts: false,
+    },
+    isDiscordBotRunning: false,
+    isDiscordStarting: false,
+    isDiscordStopping: false,
+    isDiscordReloading: false,
     isAudioSynthesizing: false, // 音频合成状态
     audioChunksCount: 0,        // 已生成的音频片段数
     totalChunksCount: 0,        // 总音频片段数
@@ -1224,6 +1237,7 @@ let vue_data = {
       { id: 'live_stream', title: 'live_stream_bot', icon: "fa-solid fa-video"},
       { id: 'qq_bot', title: 'qqBot', icon: 'fa-brands fa-qq' },
       { id: 'feishu_bot', title: 'feishuBot', icon: 'fa-solid fa-paper-plane' },
+      { id: 'discord_bot', title: 'discordBot', icon: 'fa-brands fa-discord' },
       { id: 'read_bot', title: 'readBot', icon: "fa-solid fa-book-open-reader"}, 
       { id: 'translate_bot', title: 'translateBot', icon: "fa-solid fa-language"}, 
       { id: 'bot_config', title: 'bot_config', icon: 'fa-solid fa-robot' }

@@ -49,4 +49,4 @@ pip-licenses
 lark_oapi
 pydub
 imageio_ffmpeg
-discord.py
+discord.py[voice]

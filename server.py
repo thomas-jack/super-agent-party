@@ -4045,7 +4045,7 @@ def hotwords_to_json(input_str):
     return json.dumps(result, ensure_ascii=False)
 
 # ASR WebSocket处理
-@app.websocket("/asr_ws")
+@app.websocket("/ws/asr")
 async def asr_websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     
@@ -6274,6 +6274,35 @@ async def reload_feishu_bot(config: FeishuBotConfig):
             status_code=500,
             content={"success": False, "message": str(e)}
         )
+    
+from py.discord_bot_manager import DiscordBotManager, DiscordBotConfig
+
+discord_bot_manager = DiscordBotManager()
+
+@app.post("/start_discord_bot")
+async def start_discord_bot(config: DiscordBotConfig):
+    try:
+        discord_bot_manager.start_bot(config)
+        return {"success": True, "message": "Discord 机器人已启动"}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"success": False, "message": str(e)})
+
+@app.post("/stop_discord_bot")
+async def stop_discord_bot():
+    discord_bot_manager.stop_bot()
+    return {"success": True, "message": "Discord 机器人已停止"}
+
+@app.get("/discord_bot_status")
+async def discord_bot_status():
+    return discord_bot_manager.get_status()
+
+@app.post("/reload_discord_bot")
+async def reload_discord_bot(config: DiscordBotConfig):
+    discord_bot_manager.stop_bot()
+    await asyncio.sleep(1)
+    discord_bot_manager.start_bot(config)
+    return {"success": True, "message": "Discord 机器人已重载"}
+
 
 @app.post("/add_workflow")
 async def add_workflow(file: UploadFile = File(...), workflow_data: str = Form(...)):
