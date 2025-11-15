@@ -326,6 +326,7 @@
     "liveConfig": {
       "onlyDanmaku": true,
       "danmakuQueueLimit": 5,
+      "wakeWord":"",
       "bilibili_enabled": false,
       "bilibili_type": "web",
       "bilibili_room_id": "",
@@ -359,6 +360,15 @@
       "reasoningVisible": true,
       "quickRestart": true,
       "enableTTS":false
+    },
+    "telegramBotConfig": {
+      "TelegramAgent": "super-model",
+      "memoryLimit": 20,
+      "separators": ["。", "\n", "？", "！"],
+      "reasoningVisible": false,
+      "quickRestart": true,
+      "enableTTS": false,
+      "bot_token": ""
     },
     "discordBotConfig": {
       "token": "",
