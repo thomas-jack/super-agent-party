@@ -382,7 +382,6 @@ async function startBackend() {
         '--port', PORT.toString(),
         '--host', BACKEND_HOST,
       ], {...spawnOptions,
-        stdio: 'inherit',
       }
     );
     } else {
