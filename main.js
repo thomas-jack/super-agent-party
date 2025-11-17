@@ -377,8 +377,8 @@ async function startBackend() {
     const BACKEND_HOST = networkVisible ? '0.0.0.0' : HOST
 
     if (isDev) {
-      console.log(`🐍 启动开发模式后端: ${pythonExec}`)
-      console.log(`🌐 地址: http://${BACKEND_HOST}:${PORT}`)
+      console.log(`🐍 Starting development mode backend: ${pythonExec}`)
+      console.log(`🌐 Address: http://${BACKEND_HOST}:${PORT}`)
       
       backendProcess = spawn(pythonExec, [
         '-u',  // 无缓冲模式，确保输出实时性
@@ -410,7 +410,7 @@ async function startBackend() {
           // 移除末尾换行符避免双换行
           const output = data.toString().replace(/\r?\n$/, '')
           if (output.trim()) {
-            console.log(`[后端] ${output}`)
+            console.log(`[BACKEND] ${output}`)
           }
         } else {
           // 生产模式：写入日志文件
@@ -433,9 +433,9 @@ async function startBackend() {
           if (output.trim()) {
             // 错误和警告用不同颜色显示
             if (output.includes('WARNING') || output.includes('DeprecationWarning')) {
-              console.warn(`[后端警告] ${output}`)
+              console.warn(`[BACKEND] ${output}`)
             } else {
-              console.error(`[后端错误] ${output}`)
+              console.error(`[BACKEND] ${output}`)
             }
           }
         } else {
@@ -452,17 +452,17 @@ async function startBackend() {
 
     // 进程事件处理
     backendProcess.on('spawn', () => {
-      console.log('✅ 后端进程成功启动')
+      console.log('✅ Backend process started successfully')
     })
 
     backendProcess.on('error', (err) => {
-      console.error('❌ 后端进程错误:', err)
+      console.error('❌ Backend process error:', err)
     })
 
     backendProcess.on('close', (code, signal) => {
-      const message = signal 
-        ? `后端进程被信号 ${signal} 终止` 
-        : `后端进程退出，代码: ${code}`
+    const message = signal
+      ? `Backend process terminated by signal ${signal}`
+      : `Backend process exited with code: ${code}`
       
       if (isDev || code !== 0) {
         console.log(`🔄 ${message}`)
