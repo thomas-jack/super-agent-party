@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo  # Python 内置模块
 import aiohttp
 import requests
 from tzlocal import get_localzone
-from py.accweatherAPI import AccuWeatherAPI
 from py.get_setting import load_settings
 import wikipediaapi
 import arxiv
