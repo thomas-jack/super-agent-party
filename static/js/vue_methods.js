@@ -7906,17 +7906,43 @@ resumeRead() {
     },
 
 
-    // 获取音频MIME类型
+    // 1. 获取全量主流音频格式的 MIME 类型
     getAudioMimeType() {
-      return this.ttsSettings.audioFormat === 'wav' 
-        ? 'audio/wav' 
-        : 'audio/mpeg';
+      // 获取格式，默认为 mp3，转小写
+      const format = (this.ttsSettings.audioFormat || 'mp3').toLowerCase();
+
+      const mimeMap = {
+        // 常见格式
+        'mp3': 'audio/mpeg',
+        'wav': 'audio/wav',
+        'ogg': 'audio/ogg',
+        'webm': 'audio/webm',
+        'aac': 'audio/aac',
+        // 苹果常用
+        'm4a': 'audio/mp4',
+        'mp4': 'audio/mp4',
+        // 高保真
+        'flac': 'audio/flac',
+        'opus': 'audio/opus',
+        // 其他
+        'wma': 'audio/x-ms-wma',
+        'amr': 'audio/amr'
+      };
+
+      return mimeMap[format] || 'audio/mpeg';
     },
 
-    // 创建并下载合并后的音频
-    async createCombinedAudio(chunks, mimeType) {
+    // 2. 创建并下载合并后的音频（保持原格式）
+    async createCombinedAudio(chunks) {
+      const format = (this.ttsSettings.audioFormat || 'mp3').toLowerCase();
+      const mimeType = this.getAudioMimeType();
+
       try {
-        // 1. 获取所有音频的ArrayBuffer
+        if (!chunks || chunks.length === 0) return;
+
+        showNotification(this.t('audioProcessingStarted') || '正在处理音频...');
+
+        // A. 获取所有音频的二进制数据 (ArrayBuffer)
         const arrayBuffers = await Promise.all(
           chunks.map(async (chunk) => {
             const response = await fetch(chunk.url);
@@ -7924,25 +7950,27 @@ resumeRead() {
           })
         );
 
-        // 2. 合并ArrayBuffer
-        const totalLength = arrayBuffers.reduce((acc, buffer) => acc + buffer.byteLength, 0);
-        const combinedBuffer = new Uint8Array(totalLength);
-        
-        let offset = 0;
-        arrayBuffers.forEach(buffer => {
-          combinedBuffer.set(new Uint8Array(buffer), offset);
-          offset += buffer.byteLength;
-        });
+        let combinedBuffer;
 
-        // 3. 创建Blob并提供下载
+        // B. 根据格式选择合并策略
+        if (format === 'wav') {
+          // 特殊处理 WAV：去除文件头并修正长度
+          combinedBuffer = this.mergeWavBuffers(arrayBuffers);
+        } else {
+          // 通用处理 (MP3, OGG, AAC等)：直接二进制拼接
+          // 注意：WebM/M4A 直接拼接可能在某些播放器无法播放全部时长，但在不转码的前提下这是唯一方案
+          combinedBuffer = this.mergeGeneralBuffers(arrayBuffers);
+        }
+
+        // C. 创建Blob并下载
         const blob = new Blob([combinedBuffer], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         
+        // 生成带时间戳的文件名
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
         a.href = url;
-        a.download = `tts-audio-${new Date().toISOString().slice(0, 19)}.${
-          mimeType === 'audio/wav' ? 'wav' : 'mp3'
-        }`;
+        a.download = `tts-audio-${timestamp}.${format}`;
         
         document.body.appendChild(a);
         a.click();
@@ -7958,6 +7986,74 @@ resumeRead() {
         console.error('Audio merging failed:', error);
         showNotification(this.t('audioMergeFailed'));
       }
+    },
+
+    // --- 辅助函数：通用直接拼接 (适用于 MP3, OGG, AAC) ---
+    mergeGeneralBuffers(buffers) {
+      const totalLength = buffers.reduce((acc, buffer) => acc + buffer.byteLength, 0);
+      const result = new Uint8Array(totalLength);
+      
+      let offset = 0;
+      buffers.forEach(buffer => {
+        result.set(new Uint8Array(buffer), offset);
+        offset += buffer.byteLength;
+      });
+      
+      return result;
+    },
+
+    // --- 辅助函数：WAV 专用拼接 (修复文件头) ---
+    mergeWavBuffers(buffers) {
+      if (buffers.length === 0) return new Uint8Array(0);
+      if (buffers.length === 1) return new Uint8Array(buffers[0]);
+
+      // WAV 头通常是 44 字节
+      const HEADER_SIZE = 44; 
+
+      // 1. 计算总数据长度 (第一个文件的全部 + 后续文件除去头部的长度)
+      // 注意：这里假设所有分片的采样率、位深都一致（TTS生成通常是一致的）
+      let totalDataLength = 0;
+      
+      buffers.forEach((buffer, index) => {
+        if (index === 0) {
+          totalDataLength += buffer.byteLength; // 包含第一个头
+        } else {
+          totalDataLength += (buffer.byteLength - HEADER_SIZE); // 后续去掉头
+        }
+      });
+
+      const result = new Uint8Array(totalDataLength);
+      
+      // 2. 写入第一个文件的所有数据 (作为基底)
+      result.set(new Uint8Array(buffers[0]), 0);
+      let offset = buffers[0].byteLength;
+
+      // 3. 追加后续文件的数据 (跳过 Header)
+      for (let i = 1; i < buffers.length; i++) {
+        const buffer = new Uint8Array(buffers[i]);
+        // 从 HEADER_SIZE 开始截取数据
+        const dataChunk = buffer.subarray(HEADER_SIZE);
+        result.set(dataChunk, offset);
+        offset += dataChunk.byteLength;
+      }
+
+      // 4. 修正 WAV Header 中的文件大小信息
+      // 使用 DataView 操作字节，因为需要处理小端序 (Little Endian)
+      const view = new DataView(result.buffer);
+
+      // WAV Header 结构关键点:
+      // 偏移 4-7: ChunkSize = 总文件大小 - 8
+      // 偏移 40-43: Subchunk2Size = 纯数据大小
+
+      const finalFileSize = result.byteLength;
+      const finalDataSize = finalFileSize - HEADER_SIZE;
+
+      // 写入 ChunkSize (Offset 4)
+      view.setUint32(4, finalFileSize - 8, true); 
+      // 写入 Subchunk2Size (Offset 40)
+      view.setUint32(40, finalDataSize, true);
+
+      return result;
     },
 
 // 修改 stopRead 方法
