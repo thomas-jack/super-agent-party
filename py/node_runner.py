@@ -1,3 +1,4 @@
+import os
 import json, subprocess, asyncio, aiohttp, socket, time
 from pathlib import Path
 from typing import Dict, Optional
@@ -17,25 +18,32 @@ class NodeExtension:
         if self.proc and self.proc.returncode is None:
             return self.port
 
-        # 0. 快速判断：node_modules 存在且比 package.json 新
         pkg_file = self.root / "package.json"
         nm_folder = self.root / "node_modules"
+
+        # 0. 快速判断：node_modules 存在且比 package.json 新
         if nm_folder.is_dir() and nm_folder.stat().st_mtime >= pkg_file.stat().st_mtime:
-            # 已安装且没改动过，跳过
             print(f"[{self.ext_id}] node_modules 已存在，跳过 npm install")
         else:
-            # 1. 真正安装
-            print(f"[{self.ext_id}] 首次/依赖变更，执行 npm install")
+            # 1. 根据平台找 npm 可执行文件
+            npm_exe = "npm.cmd" if os.name == "nt" else "npm"
+            print(f"[{self.ext_id}] 首次/依赖变更，执行 {npm_exe} install")
             proc = await asyncio.create_subprocess_exec(
-                "npm", "install", "--production",
-                cwd=self.root, stdout=asyncio.subprocess.DEVNULL
+                npm_exe, "install", "--production",
+                cwd=self.root,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
             )
-            await proc.wait()
-            # 安装完成后把 node_modules 时间戳刷到最新，避免下次重复
+            stdout, _ = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"npm install 失败:\n{stdout.decode('utf-8', errors='ignore')}")
+            # 刷新时间戳
             nm_folder.touch(exist_ok=True)
+
         # 2. 选端口
         want = self.pkg.get("nodePort", 0)
         self.port = want if want else _free_port()
+
         # 3. 起进程
         self.proc = await asyncio.create_subprocess_exec(
             "node", "index.js", str(self.port),
@@ -46,7 +54,7 @@ class NodeExtension:
         # 4. 等健康
         await _wait_port(self.port)
         return self.port
-
+    
     async def stop(self):
         if self.proc:
             self.proc.terminate()
