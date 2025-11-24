@@ -19,7 +19,24 @@ let vrmWindows = [];
 let shotOverlay = null
 let isMac = process.platform === 'darwin';
 const vmcSendSocket = dgram.createSocket('udp4'); // 发送复用同一 socket
+const MAX_LOG_LINES = 2000; // 保留最近2000行日志
+let logBuffer = []; // 内存日志缓冲区
 
+function appendLogToBuffer(source, data) {
+  const timestamp = new Date().toLocaleTimeString();
+  const lines = data.toString().split(/\r?\n/);
+  
+  lines.forEach(line => {
+    if (line.trim()) {
+      logBuffer.push(`[${timestamp}] [${source}] ${line}`);
+    }
+  });
+
+  // 清理旧日志，防止内存无限增长
+  if (logBuffer.length > MAX_LOG_LINES) {
+    logBuffer = logBuffer.slice(logBuffer.length - MAX_LOG_LINES);
+  }
+}
 async function cropDesktop(rect) {
   if (!rect || typeof rect.x !== 'number' || typeof rect.y !== 'number' ||
       typeof rect.width !== 'number' || typeof rect.height !== 'number') {
@@ -407,9 +424,11 @@ async function startBackend() {
     if (backendProcess.stdout) {
       backendProcess.stdout.setEncoding('utf8')
       backendProcess.stdout.on('data', (data) => {
+        // [新增] 存入内存缓冲区 (Dev 和 Prod 都执行)
+        appendLogToBuffer('INFO', data);
+
         // 开发模式：实时显示在控制台
         if (isDev) {
-          // 移除末尾换行符避免双换行
           const output = data.toString().replace(/\r?\n$/, '')
           if (output.trim()) {
             console.log(`[BACKEND] ${output}`)
@@ -430,10 +449,12 @@ async function startBackend() {
     if (backendProcess.stderr) {
       backendProcess.stderr.setEncoding('utf8')
       backendProcess.stderr.on('data', (data) => {
+        // [新增] 存入内存缓冲区 (Dev 和 Prod 都执行)
+        appendLogToBuffer('ERROR', data);
+
         if (isDev) {
           const output = data.toString().replace(/\r?\n$/, '')
           if (output.trim()) {
-            // 错误和警告用不同颜色显示
             if (output.includes('WARNING') || output.includes('DeprecationWarning')) {
               console.warn(`[BACKEND] ${output}`)
             } else {
@@ -593,7 +614,9 @@ app.whenReady().then(async () => {
     if (global.vmcCfg.receive.enable) startVMCReceiver(global.vmcCfg);
     // 启动后端服务（现在会自动查找可用端口）
     const actualPort = await startBackend()
-    
+    ipcMain.handle('get-backend-logs', () => {
+      return logBuffer.join('\n');
+    });
     // 等待后端服务准备就绪
     await waitForBackend()
     

@@ -10408,4 +10408,24 @@ clearSegments() {
       this.$message.error(this.t('installGitFail'));
     }
   },
+  async openLogDialog() {
+    this.showLogDialog = true;
+    await this.fetchLogs();
+    // 自动滚动到底部
+    this.$nextTick(() => {
+      if (this.$refs.logContainer) {
+        this.$refs.logContainer.scrollTop = this.$refs.logContainer.scrollHeight;
+      }
+    });
+  },
+
+  async fetchLogs() {
+    if (window.electronAPI) {
+      try {
+        this.logContent = await window.electronAPI.getBackendLogs();
+      } catch (e) {
+        this.logContent = 'Failed to load logs: ' + e.message;
+      }
+    }
+  },
 }

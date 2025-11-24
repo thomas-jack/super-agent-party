@@ -140,6 +140,16 @@ if ('serviceWorker' in navigator) {
             <i :class="!sidebarVisible ? 'fa-solid fa-bars' : 'fa-solid fa-bars-staggered'"></i>
           </el-icon>
       </el-button>
+        <el-button 
+          v-if="!isAssistantMode&&!isMobile"
+          @click="openLogDialog"
+          class="top-bar-btn"
+          text
+          :title="t('serverLogs') || 'Server Logs'">
+          <el-icon>
+            <i class="fa-solid fa-terminal"></i>
+          </el-icon>
+        </el-button>
         <!-- 新增展开/收起按钮 -->
         <el-button 
           v-if="!isAssistantMode&&!isMobile"
@@ -272,6 +282,29 @@ if ('serviceWorker' in navigator) {
         class="sidebar-mask"
         v-show="isMobile && sidebarVisible"
         @click="sidebarVisible = false"></div>
+
+    <!-- 后端日志弹窗 -->
+    <el-dialog
+      v-model="showLogDialog"
+      :title="t('serverLogs') || 'Backend Logs'"
+      width="70%"
+      top="5vh"
+      class="log-dialog"
+      :append-to-body="true"
+    >
+      <div class="log-container" ref="logContainer">
+        <pre>{{ logContent }}</pre>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="fetchLogs">
+            <el-icon><i class="fa-solid fa-rotate-right"></i></el-icon> {{ t('refresh') || 'Refresh' }}
+          </el-button>
+          <el-button type="primary" @click="showLogDialog = false">{{ t('confirm') || 'OK' }}</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
       <el-dialog
         v-model="showModelDialog"
         :title="t('mainModel')"
