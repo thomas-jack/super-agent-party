@@ -3,7 +3,6 @@ const { app, BrowserWindow, ipcMain, screen, shell, dialog, Tray, Menu } = requi
 const { clipboard, nativeImage,desktopCapturer  } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const path = require('path')
-const iconv = require('iconv-lite') 
 const { spawn } = require('child_process')
 const { exec } = require('child_process');
 const { download } = require('electron-dl');
