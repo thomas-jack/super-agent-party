@@ -112,28 +112,28 @@
 ## 软件截图
 
 ### 多服务商支持：本地部署引擎(ollama/dify等等)以及云服务商接口均支持
-![image](doc/image/model1.jpeg)
+![image](doc/image/1.jpeg)
 
 ### 海量工具：内置各种工具(如知识库、联网、智能家居、浏览器控制)，支持异步调用，不阻塞智能体回复
-![image](doc/image/CC2.jpeg)
+![image](doc/image/2.jpeg)
 
 ### VRM桌宠：支持上传自定义VRM模型，打造专属桌面伴侣
-![image](doc/image/vrmbot3.jpeg)
+![image](doc/image/3.jpeg)
 
 ### 扩展系统：支持安装扩展，和自己创造新的扩展，下图为galgame扩展
-![image](doc/image/galgame.jpeg)
+![image](doc/image/4.jpeg)
 
 ### 酒馆角色卡：支持酒馆角色卡，支持长期记忆
-![image](doc/image/card4.jpeg)
+![image](doc/image/5.jpeg)
 
-### QQ机器人：支持一键部署到QQ官方机器人，方便用户随时随地使用智能体
-![image](doc/image/qqbot6.jpeg)
+### 社交平台机器人：支持一键部署到QQ、飞书、telegram、discord
+![image](doc/image/6.jpeg)
+
+### 直播机器人：支持一键部署到B站、YouTube、twitch
+![image](doc/image/7.jpeg)
 
 ### 开发者友好：开放openai API接口、MCP接口，可以将智能体对外转接
-![image](doc/image/API7.jpeg)
-
-### 接入comfyui：将comfyui工作流转换为智能体工具，多comfyui服务器负载均衡
-![image](doc/image/comfyui8.jpeg)
+![image](doc/image/8.jpeg)
 
 ## 扩展
 

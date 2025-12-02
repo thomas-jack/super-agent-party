@@ -112,29 +112,28 @@ We provide two mainstream Linux installation package formats for your convenienc
 ## Software Screenshots
 
 ### Multi-Service Provider Support: Supports both locally deployed engines (e.g., Ollama, Dify) and cloud service provider APIs.
-![image](doc/image/model1.jpeg)
+![image](doc/image/1.jpeg)
 
 ### Extensive Tool Integration: Built-in various tools (e.g., knowledge base, web search, smart home control, browser automation), supporting asynchronous invocation without blocking agent responses.
-![image](doc/image/CC2.jpeg)
+![image](doc/image/2.jpeg)
 
 ### VRM Desktop Pet: Supports uploading custom VRM models to create a personalized desktop companion.
-![image](doc/image/vrmbot3.jpeg)
+![image](doc/image/3.jpeg)
 
 ### Extension System: Supports installing extensions and creating new ones. The image below shows a galgame extension.  
-![image](doc/image/galgame.jpeg)
+![image](doc/image/4.jpeg)
 
 ### Tavern Character Cards: Supports Tavern character cards with long-term memory capabilities.
-![image](doc/image/card4.jpeg)
+![image](doc/image/5.jpeg)
 
-### QQ Bot: Supports one-click deployment to the official QQ bot platform, enabling users to access the agent anytime, anywhere.
-![image](doc/image/qqbot6.jpeg)
+### Social platform bots: Support one-click deployment to QQ, Lark, Telegram, Discord.
+![image](doc/image/6.jpeg)
+
+### Live Streaming Bot: Supports One-Click Deployment to Bilibili, YouTube, and Twitch
+![image](doc/image/7.jpeg)
 
 ### Developer-Friendly: Provides open OpenAI API and MCP interfaces, allowing the agent to be exposed externally.
-![image](doc/image/API7.jpeg)
-
-### ComfyUI Integration: Converts ComfyUI workflows into agent tools with load balancing across multiple ComfyUI servers.
-![image](doc/image/comfyui8.jpeg)
-
+![image](doc/image/8.jpeg)
 
 ## Extension
 
