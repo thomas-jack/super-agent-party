@@ -12,7 +12,6 @@ import sys
 import tempfile
 import httpx
 import websockets
-
 from py.load_files import get_file_content
 # 在程序最开始设置
 if hasattr(sys, '_MEIPASS'):
@@ -42,6 +41,7 @@ from py.mcp_clients import McpClient
 from contextlib import asynccontextmanager
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import aiofiles
 import argparse
 from py.dify_openai_async import DifyOpenAIAsync
 
@@ -531,7 +531,7 @@ async def dispatch_tool(tool_name: str, tool_params: dict,settings: dict) -> str
     from py.agent_tool import agent_tool_call
     from py.a2a_tool import a2a_tool_call
     from py.llm_tool import custom_llm_tool
-    from py.pollinations import pollinations_image,openai_image,siliconflow_image
+    from py.pollinations import pollinations_image,openai_image
     from py.load_files import get_file_content
     from py.code_interpreter import e2b_code_async,local_run_code_async
     from py.custom_http import fetch_custom_http
@@ -563,7 +563,6 @@ async def dispatch_tool(tool_name: str, tool_params: dict,settings: dict) -> str
         "e2b_code_async": e2b_code_async,
         "local_run_code_async": local_run_code_async,
         "openai_image": openai_image,
-        "siliconflow_image": siliconflow_image,
         "Bing_search_async": Bing_search_async,
         "Google_search_async": Google_search_async,
         "Brave_search_async": Brave_search_async,
@@ -807,9 +806,9 @@ async def tools_change_messages(request: ChatRequest, settings: dict):
             if stickerPack["enabled"]:
                 sticker_message = f"\n\n图片库名称：{stickerPack['name']}，包含的图片：{json.dumps(stickerPack['stickers'])}\n\n"
                 content_append(request.messages, 'system', sticker_message)
-        content_append(request.messages, 'system', "\n\n当你需要使用图片时，请将图片的URL放在markdown的图片标签中，例如：\n\n<silence>![图片名](图片URL)</silence>\n\n，图片markdown必须另起并且独占一行！<silence>和</silence>是控制TTS的静音标签，表示这个图片部分不会进入语音合成\n\n你必须在回复中正确使用 <silence> 标签来包裹图片的 Markdown 语法\n\n")
+        content_append(request.messages, 'system', "\n\n当你需要使用图片时，请将图片的URL放在markdown的图片标签中，例如：\n\n<silence>![图片名](图片URL)</silence>\n\n，图片markdown必须另起并且独占一行！<silence>和</silence>是控制TTS的静音标签，表示这个图片部分不会进入语音合成\n\n你必须在回复中正确使用 <silence> 标签来包裹图片的 Markdown 语法\n\n<silence>和</silence>与图片的 Markdown 语法之间不能有空格和回车，会导致解析失败！\n\n")
     if settings['text2imgSettings']['enabled']:
-        text2img_messages = "\n\n当你使用画图工具后，必须将图片的URL放在markdown的图片标签中，例如：\n\n<silence>![图片名](图片URL)</silence>\n\n，图片markdown必须另起并且独占一行！请主动发给用户，工具返回的结果，用户看不到！<silence>和</silence>是控制TTS的静音标签，表示这个图片部分不会进入语音合成\n\n你必须在回复中正确使用 <silence> 标签来包裹图片的 Markdown 语法\n\n"
+        text2img_messages = "\n\n当你使用画图工具后，必须将图片的URL放在markdown的图片标签中，例如：\n\n<silence>![图片名](图片URL)</silence>\n\n，图片markdown必须另起并且独占一行！请主动发给用户，工具返回的结果，用户看不到！<silence>和</silence>是控制TTS的静音标签，表示这个图片部分不会进入语音合成\n\n你必须在回复中正确使用 <silence> 标签来包裹图片的 Markdown 语法\n\n注意！！！<silence>和</silence>与图片的 Markdown 语法之间不能有空格和回车，会导致解析失败！\n\n"
         content_append(request.messages, 'system', text2img_messages)
     if settings['VRMConfig']['enabledExpressions']:
         Expression_messages = "\n\n你可以使用以下表情：<happy> <angry> <sad> <neutral> <surprised> <relaxed>\n\n你可以在句子开头插入表情符号以驱动人物的当前表情，注意！你需要将表情符号放到句子的开头，才能在说这句话的时候同步做表情，例如：<angry>我真的生气了。<surprised>哇！<happy>我好开心。\n\n一定要把表情符号跟要做表情的句子放在同一行，如果表情符号和要做表情的句子中间有换行符，表情也将不会生效，例如：\n\n<happy>\n我好开心。\n\n此时，表情符号将不会生效。"
@@ -965,7 +964,7 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
     from py.agent_tool import get_agent_tool
     from py.a2a_tool import get_a2a_tool
     from py.llm_tool import get_llm_tool
-    from py.pollinations import pollinations_image_tool,openai_image_tool,siliconflow_image_tool
+    from py.pollinations import pollinations_image_tool,openai_image_tool
     from py.code_interpreter import e2b_code_tool,local_run_code_tool
     from py.utility_tools import (
         time_tool, 
@@ -996,7 +995,7 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                         "model": cur_memory['model'],
                         "api_key": cur_memory['api_key'],
                         "openai_base_url":cur_memory["base_url"],
-                        "embedding_dims":1024
+                        "embedding_dims":cur_memory.get("embedding_dims", 1024)
                     },
                 },
                 "llm": {
@@ -1013,7 +1012,7 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
                         "collection_name": "agent-party",
                         "path": os.path.join(MEMORY_CACHE_DIR,memoryId),
                         "distance_strategy": "euclidean",
-                        "embedding_model_dims": 1024
+                        "embedding_model_dims": cur_memory.get("embedding_dims", 1024)
                     }
                 }
             }
@@ -1076,10 +1075,7 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
             if settings['text2imgSettings']['engine'] == 'pollinations':
                 tools.append(pollinations_image_tool)
             elif settings['text2imgSettings']['engine'] == 'openai':
-                if settings['text2imgSettings']['vendor'] == 'siliconflow':
-                    tools.append(siliconflow_image_tool)
-                else:
-                    tools.append(openai_image_tool)
+                tools.append(openai_image_tool)
         if settings['tools']['getFile']['enabled']:
             tools.append(file_tool)
             tools.append(image_tool)
@@ -2678,7 +2674,7 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
     from py.agent_tool import get_agent_tool
     from py.a2a_tool import get_a2a_tool
     from py.llm_tool import get_llm_tool
-    from py.pollinations import pollinations_image_tool,openai_image_tool,siliconflow_image_tool
+    from py.pollinations import pollinations_image_tool,openai_image_tool
     from py.code_interpreter import e2b_code_tool,local_run_code_tool
     from py.utility_tools import time_tool
     from py.utility_tools import (
@@ -2709,7 +2705,7 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                         "model": cur_memory['model'],
                         "api_key": cur_memory['api_key'],
                         "openai_base_url":cur_memory["base_url"],
-                        "embedding_dims":1024,
+                        "embedding_dims":cur_memory.get("embedding_dims", 1024)
                     },
                 },
                 "llm": {
@@ -2726,7 +2722,7 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                         "collection_name": "agent-party",
                         "path": os.path.join(MEMORY_CACHE_DIR,memoryId),
                         "distance_strategy": "euclidean",
-                        "embedding_model_dims": 1024
+                        "embedding_model_dims": cur_memory.get("embedding_dims", 1024)
                     }
                 }
             }
@@ -2791,10 +2787,7 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
         if settings['text2imgSettings']['engine'] == 'pollinations':
             tools.append(pollinations_image_tool)
         elif settings['text2imgSettings']['engine'] == 'openai':
-            if settings['text2imgSettings']['vendor'] == 'siliconflow':
-                tools.append(siliconflow_image_tool)
-            else:
-                tools.append(openai_image_tool)
+            tools.append(openai_image_tool)
     if settings['tools']['getFile']['enabled']:
         tools.append(file_tool)
         tools.append(image_tool)
@@ -6845,6 +6838,9 @@ app.include_router(extensions_router)
 
 from py.sherpa_model_manager import router as sherpa_model_router
 app.include_router(sherpa_model_router)
+
+from py.ebd_api import router as embedding_router
+app.include_router(embedding_router)
 
 mcp = FastApiMCP(
     app,

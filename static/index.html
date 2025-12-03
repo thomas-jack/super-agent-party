@@ -1237,6 +1237,15 @@ if ('serviceWorker' in navigator) {
                   />
                 </el-select>
               </el-form-item>
+              <el-form-item v-if="ttsSettings.newtts.length > 0 " :label="t('availableVoice')"></el-form-item>
+              <div class="knowledge-dialog-content">
+                <div v-for="(config, name) in ttsSettings.newtts" :key="name" class="knowledge-item">
+                  <el-switch v-model="config.enabled" @change="autoSaveSettings"></el-switch>
+                  <div class="knowledge-info">
+                    <div class="knowledge-name">{{ name }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </el-dialog>
           <el-dialog
@@ -4117,26 +4126,14 @@ if ('serviceWorker' in navigator) {
                           </el-option>
                         </el-select>
                       </el-form-item>
-                      <el-form-item :label="t('size')" class="form-item-align">
+                      <el-form-item :label="t('sizeAllowCreate')" class="form-item-align">
                         <el-select
+                          filterable
+                          allow-create
                           v-model="text2imgSettings.size"
                           @change="autoSaveSettings"
                           class="full-width-input"
-                          v-if="text2imgSettings.vendor == 'siliconflow'"
                         >
-                          <el-option label="1024x1024" value="1024x1024" ></el-option>
-                          <el-option label="960x1280" value="960x1280" ></el-option>
-                          <el-option label="768x1024" value="768x1024" ></el-option>
-                          <el-option label="720x1440" value="720x1440" ></el-option>
-                          <el-option label="720x1280" value="720x1280" ></el-option>
-                        </el-select>
-                        <el-select
-                          v-model="text2imgSettings.size"
-                          @change="autoSaveSettings"
-                          class="full-width-input"
-                          v-else
-                        >
-                          <el-option :label="t('auto')" value="auto" ></el-option>
                           <el-option label="1024x1024" value="1024x1024" ></el-option>
                           <el-option label="1536x1024" value="1536x1024" ></el-option>
                           <el-option label="1024x1536" value="1024x1536" ></el-option>

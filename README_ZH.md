@@ -42,21 +42,19 @@
 
 ### windows整合包（推荐！免安装源码版本，支持一键同步到仓库最新版本，无需等待桌面版打包）
 
-  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/super-agent-party-win-v0.3.2.zip)
+  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/super-agent-party-win-v0.3.3.7z)
 
 ⭐注意！你可以双击`一键更新(update).bat`更新软件，也可以双击`一键启动(start).bat`启动软件。
 
-⭐注意！为了减小安装包大小，修改了npm的下载逻辑，v0.3.1版本以及之前的整合包将不能正常更新，请下载更新v0.3.2及以后的整合包！
-
 ### windows桌面版安装
 
-  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-Setup-0.3.2.exe)
+  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-Setup-0.3.3.exe)
 
 ⭐注意！安装时选择仅为当前用户安装，否则启动时需要管理员权限。
 
 ### MacOS整合包（目前只支持M芯片，适合开发者，同样是免安装源码版本，支持一键同步到仓库最新版本，无需等待桌面版打包）
 
-  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/super-agent-party-mac-v0.3.2.zip)
+  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/super-agent-party-mac-v0.3.3.7z)
 
 ⭐注意！你可以在终端使用`一键更新(update).sh`更新软件，也可以在终端使用`一键启动(start).sh`启动软件。在使用前，记得给文件加权限！
 
@@ -69,7 +67,7 @@
 
 ### MacOS桌面版安装（目前只支持M芯片）
 
-  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-0.3.2-Mac.dmg)
+  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-0.3.3-Mac.dmg)
 
 ⭐注意！下载后将dmg文件的app文件拖入`/Applications`目录下，然后打开终端，执行以下命令并输入root密码，从而移除从网络下载附加的Quarantine属性：
 
@@ -85,11 +83,11 @@
 
 `.AppImage` 是一种无需安装、即开即用的 Linux 应用格式。适用于大多数 Linux 发行版。
 
-  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-0.3.2-Linux.AppImage)
+  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-0.3.3-Linux.AppImage)
 
 #### 2. 使用 `.deb` 包安装（适用于 Ubuntu / Debian 系统）
 
-  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-0.3.2-Linux.deb)
+  👉 [点击下载](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-0.3.3-Linux.deb)
 
 ### docker部署（该版本桌宠只能通过浏览器查看）
 
@@ -114,28 +112,28 @@
 ## 软件截图
 
 ### 多服务商支持：本地部署引擎(ollama/dify等等)以及云服务商接口均支持
-![image](doc/image/model1.jpeg)
+![image](doc/image/1.jpeg)
 
 ### 海量工具：内置各种工具(如知识库、联网、智能家居、浏览器控制)，支持异步调用，不阻塞智能体回复
-![image](doc/image/CC2.jpeg)
+![image](doc/image/2.jpeg)
 
 ### VRM桌宠：支持上传自定义VRM模型，打造专属桌面伴侣
-![image](doc/image/vrmbot3.jpeg)
+![image](doc/image/3.jpeg)
 
 ### 扩展系统：支持安装扩展，和自己创造新的扩展，下图为galgame扩展
-![image](doc/image/galgame.jpeg)
+![image](doc/image/4.jpeg)
 
 ### 酒馆角色卡：支持酒馆角色卡，支持长期记忆
-![image](doc/image/card4.jpeg)
+![image](doc/image/5.jpeg)
 
-### QQ机器人：支持一键部署到QQ官方机器人，方便用户随时随地使用智能体
-![image](doc/image/qqbot6.jpeg)
+### 社交平台机器人：支持一键部署到QQ、飞书、telegram、discord
+![image](doc/image/6.jpeg)
+
+### 直播机器人：支持一键部署到B站、YouTube、twitch
+![image](doc/image/7.jpeg)
 
 ### 开发者友好：开放openai API接口、MCP接口，可以将智能体对外转接
-![image](doc/image/API7.jpeg)
-
-### 接入comfyui：将comfyui工作流转换为智能体工具，多comfyui服务器负载均衡
-![image](doc/image/comfyui8.jpeg)
+![image](doc/image/8.jpeg)
 
 ## 扩展
 

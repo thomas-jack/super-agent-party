@@ -42,25 +42,21 @@
 
 ### Windows portable package (Recommended! Installation-free source version, support one-click synchronization to the latest version of the warehouse, no need to wait for the desktop version to be packaged)
 
-  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/super-agent-party-win-v0.3.2.zip)
+  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/super-agent-party-win-v0.3.3.7z)
 
 ⭐ Note!  You can double-click `一键更新(update).bat` to update the software, or you can double-click `一键启动(start).bat` to start the software.
 
-⭐ Note!  To reduce the installation package size, the npm download logic has been modified. Integration packages of version v0.3.1 and earlier will not update properly. Please download and update to integration packages of v0.3.2 or later!
-
 ### Windows Desktop Installation
 
-  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-Setup-0.3.2.exe)
+  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-Setup-0.3.3.exe)
 
 ⭐ Note! Choose to install only for the current user during installation, otherwise, administrator privileges will be required to start.
 
 ### macOS portable package (Currently only M chips are supported, developer-oriented, no-install source version, one-click sync to latest repo, no need to wait for desktop build)
 
-  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/super-agent-party-mac-v0.3.2.zip)
+  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/super-agent-party-mac-v0.3.3.7z)
 
 ⭐ Note! You can update the software in Terminal with `one-click update(update).sh` or launch it with `one-click start(start).sh`. Remember to grant permissions before use!
-
-⭐ Note!  To reduce the installation package size, the npm download logic has been modified. Integration packages of version v0.3.1 and earlier will not update properly. Please download and update to integration packages of v0.3.2 or later!
 
   ```shell
   chmod +x 一键更新(update).sh
@@ -71,7 +67,7 @@
 
 ### MacOS Desktop Installation (Currently only M chips are supported.)
 
-  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-0.3.2-Mac.dmg)
+  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-0.3.3-Mac.dmg)
 
 ⭐Attention! After downloading, drag the app file of the dmg file into the `/Applications` directory, then open end point, execute the following command and enter the root password to remove the attached Quarantine attribute from the network download:
 
@@ -87,11 +83,11 @@ We provide two mainstream Linux installation package formats for your convenienc
 
 `.AppImage` is a Linux application format that does not require installation and can be used immediately. Suitable for most Linux distributions.
 
-  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-0.3.2-Linux.AppImage)
+  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-0.3.3-Linux.AppImage)
 
 #### 2. Install using `.deb` package (Suitable for Ubuntu/Debian systems)
 
-  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.2/Super-Agent-Party-0.3.2-Linux.deb)
+  👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.3/Super-Agent-Party-0.3.3-Linux.deb)
 
 ### Docker Deployment (This version of the table pet can only be viewed through the browser.)
 
@@ -116,29 +112,28 @@ We provide two mainstream Linux installation package formats for your convenienc
 ## Software Screenshots
 
 ### Multi-Service Provider Support: Supports both locally deployed engines (e.g., Ollama, Dify) and cloud service provider APIs.
-![image](doc/image/model1.jpeg)
+![image](doc/image/1.jpeg)
 
 ### Extensive Tool Integration: Built-in various tools (e.g., knowledge base, web search, smart home control, browser automation), supporting asynchronous invocation without blocking agent responses.
-![image](doc/image/CC2.jpeg)
+![image](doc/image/2.jpeg)
 
 ### VRM Desktop Pet: Supports uploading custom VRM models to create a personalized desktop companion.
-![image](doc/image/vrmbot3.jpeg)
+![image](doc/image/3.jpeg)
 
 ### Extension System: Supports installing extensions and creating new ones. The image below shows a galgame extension.  
-![image](doc/image/galgame.jpeg)
+![image](doc/image/4.jpeg)
 
 ### Tavern Character Cards: Supports Tavern character cards with long-term memory capabilities.
-![image](doc/image/card4.jpeg)
+![image](doc/image/5.jpeg)
 
-### QQ Bot: Supports one-click deployment to the official QQ bot platform, enabling users to access the agent anytime, anywhere.
-![image](doc/image/qqbot6.jpeg)
+### Social platform bots: Support one-click deployment to QQ, Lark, Telegram, Discord.
+![image](doc/image/6.jpeg)
+
+### Live Streaming Bot: Supports One-Click Deployment to Bilibili, YouTube, and Twitch
+![image](doc/image/7.jpeg)
 
 ### Developer-Friendly: Provides open OpenAI API and MCP interfaces, allowing the agent to be exposed externally.
-![image](doc/image/API7.jpeg)
-
-### ComfyUI Integration: Converts ComfyUI workflows into agent tools with load balancing across multiple ComfyUI servers.
-![image](doc/image/comfyui8.jpeg)
-
+![image](doc/image/8.jpeg)
 
 ## Extension
 
