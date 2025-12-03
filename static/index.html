@@ -3375,7 +3375,20 @@ if ('serviceWorker' in navigator) {
                     <div class="input-group">
                       <!-- 添加输入框标签 -->
                       <div class="input-item">
-                        <label>{{ t('apiAddress') }}</label>
+                        <label>
+                          {{ t('apiAddress') }}
+                          <el-tooltip :content="t('copy')" placement="top">
+                            <el-button
+                              @click="copyApiKey(provider.url)"
+                              type="default"
+                              circle
+                              size="small"
+                              style="margin-bottom: 2px;"
+                            >
+                              <i class="fa-solid fa-copy"></i>
+                            </el-button>
+                          </el-tooltip>
+                        </label>
                         <el-input
                           v-model="provider.url"
                           :placeholder="t('apiAddressPlaceholder')"
@@ -3409,7 +3422,20 @@ if ('serviceWorker' in navigator) {
                       </div>
 
                       <div class="input-item" id="model-Id">
-                        <label>{{ t('modelId') }}</label>
+                        <label>
+                          {{ t('modelId') }}
+                          <el-tooltip :content="t('copy')" placement="top">
+                            <el-button
+                              @click="copyApiKey(provider.modelId)"
+                              type="default"
+                              circle
+                              size="small"
+                              style="margin-bottom: 2px;"
+                            >
+                              <i class="fa-solid fa-copy"></i>
+                            </el-button>
+                          </el-tooltip>
+                        </label>
                         <el-select
                           v-model="provider.modelId"
                           filterable
