@@ -1065,7 +1065,7 @@ let vue_data = {
       { id: 'main', title: 'mainModel', icon: 'fa-solid fa-microchip' },
       { id: 'reasoner', title: 'reasonerModel', icon: 'fa-solid fa-atom' },
       { id: 'vision', title: 'visionModel' , icon: 'fa-solid fa-camera'},
-      { id: 'text2img', title: 'text2imgModel', icon: 'fa-solid fa-pencil' },
+      { id: 'text2img', title: 'imgModel', icon: 'fa-solid fa-pencil' },
       { id: 'asr', title: 'asrModel', icon: 'fa-solid fa-microphone' },
       { id: 'tts', title: 'ttsModel', icon: 'fa-solid fa-volume-high' },
     ],
