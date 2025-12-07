@@ -759,7 +759,7 @@ if ('serviceWorker' in navigator) {
                   </el-button>
                 </el-tooltip>
 
-                <el-tooltip :content="t('text2img')" placement="top">
+                <el-tooltip :content="t('imgGen')" placement="top">
                   <el-button
                     @click="text2imgSettings.enabled = !text2imgSettings.enabled; autoSaveSettings()"
                     class="icon-btn text2img-btn"
@@ -2418,7 +2418,7 @@ if ('serviceWorker' in navigator) {
                         </span>
                       </div>
                       <div class="header-right">
-                         <el-button link type="primary" @click="fetchSystemVoices" :loading="isLoadingSystemVoices">
+                         <el-button circle type="primary" @click="fetchSystemVoices" :loading="isLoadingSystemVoices">
                             <i class="fa-solid fa-rotate-right"></i>
                          </el-button>
                       </div>
@@ -2427,7 +2427,7 @@ if ('serviceWorker' in navigator) {
                     <div class="tool-content">
                       <el-form-item :label="t('TTSRate')" class="form-item-align">
                         <el-slider
-                          v-model="ttsSettings.systemRate"
+                          v-model="newTTSConfig.systemRate"
                           :min="50"
                           :max="400"
                           :step="10"
@@ -2438,7 +2438,7 @@ if ('serviceWorker' in navigator) {
 
                       <el-form-item :label="t('Timbre')" class="form-item-align">
                         <el-select
-                          v-model="ttsSettings.systemVoiceName"
+                          v-model="newTTSConfig.systemVoiceName"
                           class="full-width-input"
                           :loading="isLoadingSystemVoices"
                           @change="autoSaveSettings"
@@ -2508,7 +2508,7 @@ if ('serviceWorker' in navigator) {
                         </el-form-item>
                         <el-form-item :label="t('openaiStream')" class="form-item-align" label-position="left">
                           <el-switch 
-                            v-model="ttsSettings.openaiStream" 
+                            v-model="newTTSConfig.openaiStream" 
                             @change="autoSaveSettings"
                           ></el-switch>
                         </el-form-item>
@@ -2609,38 +2609,74 @@ if ('serviceWorker' in navigator) {
                         </div>
                       </div>
                       <div class="tool-content">
-                        <el-form-item :label="t('customTTSserver')" class="form-item-align">
-                          <el-input
-                            v-model="newTTSConfig.customTTSserver"
-                            :placeholder="t('customTTSServerPlaceholder')"
-                            @input="autoSaveSettings"
-                            type="textarea"
-                          />
-                        </el-form-item>
-                        <el-form-item :label="t('customStream')" class="form-item-align" label-position="left">
-                          <el-switch 
-                            v-model="ttsSettings.customStream" 
-                            @change="autoSaveSettings"
-                          ></el-switch>
-                        </el-form-item>
-                        <el-form-item :label="t('customTTSspeaker')" class="form-item-align">
-                          <el-input
-                            v-model="newTTSConfig.customTTSspeaker"
-                            :placeholder="t('customTTSspeakerPlaceholder')"
-                            @input="autoSaveSettings"
-                            class="full-width-input"
-                          />
-                        </el-form-item>
-                        <!-- 语速滑动条 -->
-                        <el-form-item :label="t('customTTSspeed')" class="form-item-align">
-                          <el-slider
-                            v-model="newTTSConfig.customTTSspeed"
-                            :min="0.1"
-                            :max="2"
-                            :step="0.1"
-                            show-input
-                            @change="autoSaveSettings">
-                        </el-form-item>
+                          <el-form-item :label="t('customTTSserver')" class="form-item-align">
+                            <el-input
+                              v-model="newTTSConfig.customTTSserver"
+                              :placeholder="t('customTTSServerPlaceholder')"
+                              @input="autoSaveSettings"
+                              type="textarea"
+                            />
+                          </el-form-item>
+                          <el-form-item :label="t('customStream')" class="form-item-align" label-position="left">
+                            <el-switch 
+                              v-model="newTTSConfig.customStream" 
+                              @change="autoSaveSettings"
+                            ></el-switch>
+                          </el-form-item>
+                          
+                          <el-form-item :label="t('customTTSspeaker')" class="form-item-align">
+                              <el-input
+                                  v-model="newTTSConfig.customTTSspeaker"
+                                  :placeholder="t('customTTSspeakerPlaceholder')"
+                                  @input="autoSaveSettings"
+                                  class="full-width-input"
+                              />
+                          </el-form-item>
+                          <el-form-item :label="t('customTTSspeed')" class="form-item-align">
+                              <el-slider
+                                  v-model="newTTSConfig.customTTSspeed"
+                                  :min="0.1"
+                                  :max="2"
+                                  :step="0.1"
+                                  show-input
+                                  @change="autoSaveSettings">
+                              </el-slider>
+                          </el-form-item>
+
+                          <hr> <div class="advanced-key-config">
+                              <div class="tool-header" style="margin-bottom: 10px;">
+                                  <div class="header-left">
+                                      <span>{{t('customTTSKeyMapping')}}</span>
+                                  </div>
+                              </div>
+
+                              <el-form-item :label="t('key_text')" class="form-item-align">
+                                  <el-input
+                                      v-model="newTTSConfig.customTTSKeyText"
+                                      placeholder="text"
+                                      @input="autoSaveSettings"
+                                      class="full-width-input"
+                                  />
+                              </el-form-item>
+
+                              <el-form-item :label="t('key_speaker')" class="form-item-align">
+                                  <el-input
+                                      v-model="newTTSConfig.customTTSKeySpeaker"
+                                      placeholder="speaker"
+                                      @input="autoSaveSettings"
+                                      class="full-width-input"
+                                  />
+                              </el-form-item>
+
+                              <el-form-item :label="t('key_speed')" class="form-item-align">
+                                  <el-input
+                                      v-model="newTTSConfig.customTTSKeySpeed"
+                                      placeholder="speed"
+                                      @input="autoSaveSettings"
+                                      class="full-width-input"
+                                  />
+                              </el-form-item>
+                          </div>
                       </div>
                     </div>
 
@@ -4868,7 +4904,7 @@ if ('serviceWorker' in navigator) {
                         </span>
                       </div>
                       <div class="header-right">
-                         <el-button link type="primary" @click="fetchSystemVoices" :loading="isLoadingSystemVoices">
+                         <el-button circle type="primary" @click="fetchSystemVoices" :loading="isLoadingSystemVoices">
                             <i class="fa-solid fa-rotate-right"></i>
                          </el-button>
                       </div>
@@ -5059,38 +5095,74 @@ if ('serviceWorker' in navigator) {
                       </div>
                     </div>
                     <div class="tool-content">
-                      <el-form-item :label="t('customTTSserver')" class="form-item-align">
-                        <el-input
-                          v-model="ttsSettings.customTTSserver"
-                          :placeholder="t('customTTSServerPlaceholder')"
-                          @input="autoSaveSettings"
-                          type="textarea"
-                        />
-                      </el-form-item>
-                      <el-form-item :label="t('customStream')" class="form-item-align" label-position="left">
-                        <el-switch 
-                          v-model="ttsSettings.customStream" 
-                          @change="autoSaveSettings"
-                        ></el-switch>
-                      </el-form-item>
-                      <el-form-item :label="t('customTTSspeaker')" class="form-item-align">
-                        <el-input
-                          v-model="ttsSettings.customTTSspeaker"
-                          :placeholder="t('customTTSspeakerPlaceholder')"
-                          @input="autoSaveSettings"
-                          class="full-width-input"
-                        />
-                      </el-form-item>
-                      <!-- 语速滑动条 -->
-                      <el-form-item :label="t('customTTSspeed')" class="form-item-align">
-                        <el-slider
-                          v-model="ttsSettings.customTTSspeed"
-                          :min="0.1"
-                          :max="2"
-                          :step="0.1"
-                          show-input
-                          @change="autoSaveSettings">
-                      </el-form-item>
+                        <el-form-item :label="t('customTTSserver')" class="form-item-align">
+                          <el-input
+                            v-model="ttsSettings.customTTSserver"
+                            :placeholder="t('customTTSServerPlaceholder')"
+                            @input="autoSaveSettings"
+                            type="textarea"
+                          />
+                        </el-form-item>
+                        <el-form-item :label="t('customStream')" class="form-item-align" label-position="left">
+                          <el-switch 
+                            v-model="ttsSettings.customStream" 
+                            @change="autoSaveSettings"
+                          ></el-switch>
+                        </el-form-item>
+                        
+                        <el-form-item :label="t('customTTSspeaker')" class="form-item-align">
+                            <el-input
+                                v-model="ttsSettings.customTTSspeaker"
+                                :placeholder="t('customTTSspeakerPlaceholder')"
+                                @input="autoSaveSettings"
+                                class="full-width-input"
+                            />
+                        </el-form-item>
+                        <el-form-item :label="t('customTTSspeed')" class="form-item-align">
+                            <el-slider
+                                v-model="ttsSettings.customTTSspeed"
+                                :min="0.1"
+                                :max="2"
+                                :step="0.1"
+                                show-input
+                                @change="autoSaveSettings">
+                            </el-slider>
+                        </el-form-item>
+
+                        <hr> <div class="advanced-key-config">
+                            <div class="tool-header" style="margin-bottom: 10px;">
+                                <div class="header-left">
+                                    <span>{{t('customTTSKeyMapping')}}</span>
+                                </div>
+                            </div>
+
+                            <el-form-item :label="t('key_text')" class="form-item-align">
+                                <el-input
+                                    v-model="ttsSettings.customTTSKeyText"
+                                    placeholder="text"
+                                    @input="autoSaveSettings"
+                                    class="full-width-input"
+                                />
+                            </el-form-item>
+
+                            <el-form-item :label="t('key_speaker')" class="form-item-align">
+                                <el-input
+                                    v-model="ttsSettings.customTTSKeySpeaker"
+                                    placeholder="speaker"
+                                    @input="autoSaveSettings"
+                                    class="full-width-input"
+                                />
+                            </el-form-item>
+
+                            <el-form-item :label="t('key_speed')" class="form-item-align">
+                                <el-input
+                                    v-model="ttsSettings.customTTSKeySpeed"
+                                    placeholder="speed"
+                                    @input="autoSaveSettings"
+                                    class="full-width-input"
+                                />
+                            </el-form-item>
+                        </div>
                     </div>
                   </div>
 

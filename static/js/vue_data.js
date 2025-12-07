@@ -541,6 +541,9 @@ let vue_data = {
       customTTSspeaker: "",
       customTTSspeed: 1.0,
       customStream: false,
+      customTTSKeyText: 'text',
+      customTTSKeySpeaker: 'speaker',
+      customTTSKeySpeed: 'speed',
       systemVoiceName: null,
       systemRate: 200,
       newtts:{}
