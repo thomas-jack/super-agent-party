@@ -777,7 +777,7 @@ async def tools_change_messages(request: ChatRequest, settings: dict):
     if request.messages[-1]['role'] == 'system' and settings['tools']['autoBehavior']['enabled']:
         language_message = f"\n\n当你看到被插入到对话之间的系统消息，这是自主行为系统向你发送的消息，例如用户主动或者要求你设置了一些定时任务或者延时任务，当你看到自主行为系统向你发送的消息时，说明这些任务到了需要被执行的节点，例如：用户要你三点或五分钟后提醒开会的事情，然后当你看到一个被插入的“提醒用户开会”的系统消息，你需要立刻提醒用户开会，以此类推\n\n"
         content_append(request.messages, 'system', language_message)
-    if settings['ttsSettings']['newtts'] and settings['ttsSettings']['enabled']:
+    if settings['ttsSettings']['newtts'] and settings['ttsSettings']['enabled'] and settings['memorySettings']['is_memory'] == True:
         # 遍历settings['ttsSettings']['newtts']，获取所有包含enabled: true的key
         for key in settings['ttsSettings']['newtts']:
             if settings['ttsSettings']['newtts'][key]['enabled']:
@@ -785,8 +785,11 @@ async def tools_change_messages(request: ChatRequest, settings: dict):
         if newttsList:
             newttsList = json.dumps(newttsList,ensure_ascii=False)
             print(f"可用音色：{newttsList}")
-            newtts_messages = f"你可以使用以下音色：\n{newttsList}\n以及特殊无声音色<silence>，被<silence>括起来的部分会不会进入语音合成，当你生成回答时，你需要以XML格式组织回答，将不同的旁白或角色的文字用<音色名></音色名>括起来，以表示这些话是使用这个音色，以控制不同TTS转换成对应音色。对于没有对应音色的部分，可以不括。即使音色名称不为英文，还是可以照样使用<音色名>使用该音色的文本</音色名>来启用对应音色。注意！如果是你扮演的角色的名字在音色列表里，你必须用这个音色标签将你扮演的角色说话的部分括起来！只要是非人物说话的部分，都视为旁白！角色音色应该标记在人物说话的前后！例如：<Narrator>现在是下午三点，她说道：</Narrator><角色名>”天气真好哇！“</角色名><silence>(眼睛笑成了一条线)</silence><Narrator>说完她伸了个懒腰。</Narrator>\n\n"
+            newtts_messages = f"你可以使用以下音色：\n{newttsList}\n以及特殊无声音色<silence>，被<silence>括起来的部分会不会进入语音合成，当你生成回答时，你需要以XML格式组织回答，将不同的旁白或角色的文字用<音色名></音色名>括起来，以表示这些话是使用这个音色，以控制不同TTS转换成对应音色。对于没有对应音色的部分，可以不括。即使音色名称不为英文，还是可以照样使用<音色名>使用该音色的文本</音色名>来启用对应音色。注意！如果是你扮演的角色的名字在音色列表里，你必须用这个音色标签将你扮演的角色说话的部分括起来！只要是非人物说话的部分，都视为旁白！角色音色应该标记在人物说话的前后！例如：<Narrator>现在是下午三点，她说道：</Narrator><角色名>”天气真好哇！“</角色名><silence>(眼睛笑成了一条线)</silence><Narrator>说完她伸了个懒腰。</Narrator>\n\n还有注意！<音色名></音色名>之间不能嵌套，只能并列，防止出现音色混乱！"
             content_prepend(request.messages, 'system', newtts_messages)
+    if settings['ttsSettings']['enabled']:
+        tts_messages = f"你生成的文字将被语音合成，你需要将无需合成的部分前后加上<silence></silence>标签，例如：图片markdown、视频markdown、网址链接、人物内心独白等等。如果你没有使用</silence>标签，那么在<silence>之后的文字都会被静音，请注意！<silence>和</silence>之间不能有空格和回车，否则会导致解析失败！\n\n"
+        content_prepend(request.messages, 'system', tts_messages)
     if settings['vision']['desktopVision']:
         desktop_message = "\n\n用户与你对话时，会自动发给你当前的桌面截图。\n\n"
         content_append(request.messages, 'system', desktop_message)
@@ -4741,15 +4744,25 @@ async def text_to_speech(request: Request):
             )
 
         elif tts_engine == 'customTTS':
-            # Custom TTS处理
-            params = {
-                "text": text,
-                "speaker": tts_settings.get('customTTSspeaker', ''),
-                "speed": tts_settings.get('customTTSspeed', 1.0)
-            }
+            # 从 tts_settings 中获取用户配置的键名，如果未配置，则使用默认值
+            key_text = tts_settings.get('customTTSKeyText', 'text')
+            key_speaker = tts_settings.get('customTTSKeySpeaker', 'speaker')
+            key_speed = tts_settings.get('customTTSKeySpeed', 'speed')
+
+            # 获取用户配置的 speaker 和 speed 的值
+            speaker_value = tts_settings.get('customTTSspeaker', '')
+            speed_value = tts_settings.get('customTTSspeed', 1.0)
             
+            # 移动端优化
             if mobile_optimized:
-                params["speed"] = min(params["speed"] * 0.95, 1.2)
+                speed_value = min(speed_value * 0.95, 1.2)
+
+            # 使用用户配置的键名构建 params
+            params = {
+                key_text: text,
+                key_speaker: speaker_value,
+                key_speed: speed_value,
+            }
             
             custom_tts_servers_list = tts_settings.get('customTTSserver', 'http://127.0.0.1:9880').split('\n')
             custom_tts_servers_list = [server for server in custom_tts_servers_list if server.strip()]

@@ -262,6 +262,9 @@
       "customTTSSpeed": 1.0,
       "customStream": false,
       "systemVoiceName": null,
+      "customTTSKeyText": "text",
+      "customTTSKeySpeaker": "speaker",
+      "customTTSKeySpeed": "speed",
       "systemRate": 200,
       "newtts":{}
     },
