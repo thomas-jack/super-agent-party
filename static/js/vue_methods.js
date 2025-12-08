@@ -3121,6 +3121,24 @@ let vue_methods = {
         }, 2000);
       }, 500);
     },
+    launchAPIKeyManager() {
+      this.isBrowserOpening = true;
+      
+      setTimeout(() => {
+        const url = this.partyURL + '/token.html';
+        if (isElectron) {
+          window.electronAPI.openExternal(url);
+        } else {
+          window.open(url, '_blank');
+        }
+        
+        // 2秒后恢复状态
+        setTimeout(() => {
+          this.isBrowserOpening = false;
+        }, 2000);
+      }, 500);
+    },
+
     async getInternalIP() {
         try {
             const response = await fetch('/api/ip'); // 假设接口在同域名下

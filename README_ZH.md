@@ -101,6 +101,22 @@
 
 - 开箱即用：访问http://localhost:3456/
 
+### docker compose部署（该版本桌宠只能通过浏览器查看，会额外启动一个网关容器，用于登录管理）
+
+- 安装本项目：
+
+  ```shell
+  git clone https://github.com/heshengtao/super-agent-party.git
+  cd super-agent-party
+  docker-compose up -d
+  ```
+
+- ⭐注意！初始用户名为`root`，初始密码为`pass`，首次登录后请修改密码。
+
+- 开箱即用：访问http://localhost:3456/
+
+- API key管理： 访问http://localhost:3456/token.html
+
 ### 源码部署
 
   ```shell

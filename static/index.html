@@ -11396,7 +11396,19 @@ if ('serviceWorker' in navigator) {
                       </el-form-item>
 
                       <!-- API key -->
-                      <el-form-item :label="t('openaiStyleAPIKey')" class="form-item-align" label-position="top">
+                      <div class="browser-mode-btn-container" v-if="isdocker">
+                        <el-button
+                          class="browser-mode-btn"
+                          type="primary"
+                          @click="launchAPIKeyManager"
+                          round
+                          size="large">
+                          <span class="ml-2">
+                            {{ t('APIKeyManager') }}
+                          </span>
+                        </el-button>
+                      </div>
+                      <el-form-item v-else :label="t('openaiStyleAPIKey')" class="form-item-align" label-position="top">
                         <el-input
                           value="super-secret-key"
                           readonly
