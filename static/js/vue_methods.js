@@ -1254,8 +1254,8 @@ let vue_methods = {
       if (event?.key === this.asrSettings.hotkey && this.asrSettings.interactionMethod == "keyTriggered") {
         event.preventDefault();
         this.asrSettings.enabled = true;
-        // 等待1.5秒后启动ASR
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // 等待2秒后关闭ASR
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await this.toggleASR();
         await this.sendMessage();
       }  
