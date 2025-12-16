@@ -1222,6 +1222,17 @@ let vue_methods = {
 
     async handleKeyDown(event) {
       if (event?.repeat) return;
+
+      if (event.code === 'Space') {
+        event.preventDefault() // 防止页面滚动
+        if (
+          this.readState.ttsChunks.length > 0 &&
+          !this.readState.isPlaying
+        ) {
+          this.playNextSegmentOnce()
+        }
+        return;
+      }
       if (event?.key === 'Enter' && this.activeMenu === 'home') {
         if (event?.shiftKey) {
           // 如果同时按下了Shift键，则不阻止默认行为，允许换行

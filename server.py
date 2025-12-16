@@ -2741,6 +2741,8 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
     close_tag = "</think>"
     tools = request.tools or []
     tools = request.tools or []
+    extra = {}
+    reasoner_extra = {}
     if mcp_client_list:
         for server_name, mcp_client in mcp_client_list.items():
             if server_name in settings['mcpServers']:
@@ -3087,8 +3089,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                     vendor = modelProvider['vendor']
                     break
             msg = await images_add_in_messages(reasoner_messages, images,settings)   
-            extra = {}
-            reasoner_extra = {}
             if chat_vendor == 'OpenAI':
                 extra['max_completion_tokens'] = request.max_tokens or settings['max_tokens']
             else:
@@ -3531,7 +3531,7 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
         return JSONResponse(content=response_dict)
     except Exception as e:
         return JSONResponse(
-            content={"error": {"message": e.message, "type": "api_error", "code": e.code}}
+            content={"error": {"message": str(e), "type": "api_error"}}
         )
 
 # 在现有路由后添加以下代码
@@ -3580,9 +3580,8 @@ async def get_models():
             status_code=e.status_code,
             content={
                 "error": {
-                    "message": e.message,
-                    "type": e.type or "api_error",
-                    "code": e.code
+                    "message": str(e),
+                    "type": "api_error",
                 }
             }
         )
@@ -3632,9 +3631,8 @@ async def get_agents():
             status_code=e.status_code,
             content={
                 "error": {
-                    "message": e.message,
-                    "type": e.type or "api_error",
-                    "code": e.code
+                    "message": str(e),
+                    "type": "api_error",
                 }
             }
         )
