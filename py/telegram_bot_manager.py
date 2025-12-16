@@ -11,6 +11,7 @@ class TelegramBotConfig(BaseModel):
     quickRestart: bool
     enableTTS: bool
     bot_token: str            # Telegram 必填
+    wakeWord: str              # 唤醒词
 
 class TelegramBotManager:
     def __init__(self):
@@ -71,6 +72,7 @@ class TelegramBotManager:
             self.bot_client.reasoningVisible = config.reasoningVisible
             self.bot_client.quickRestart = config.quickRestart
             self.bot_client.enableTTS = config.enableTTS
+            self.bot_client.wakeWord = config.wakeWord
             self.bot_client.bot_token = config.bot_token
             self.bot_client._manager_ref = weakref.ref(self)
             self.bot_client._ready_callback = self._on_bot_ready

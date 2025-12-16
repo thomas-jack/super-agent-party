@@ -1223,13 +1223,13 @@ let vue_methods = {
     async handleKeyDown(event) {
       if (event?.repeat) return;
 
-      if (event.code === 'Space') {
-        event.preventDefault() // 防止页面滚动
+      if (event.code === 'Space' && event.shiftKey) {
+        event.preventDefault();   // 防止页面滚动
         if (
           this.readState.ttsChunks.length > 0 &&
           !this.readState.isPlaying
         ) {
-          this.playNextSegmentOnce()
+          this.playNextSegmentOnce();
         }
         return;
       }
@@ -9706,7 +9706,10 @@ scrollToCurrentChunk(idx) {
 },
 
 async doPlayAudio(url, idx, continuous = false) {
-  if (this._curAudio) this._curAudio.pause();
+  if (this._curAudio) {
+    this._curAudio.pause();
+    this.sendTTSStatusToVRM('stopSpeaking', {});
+  }
   try {
     const audio = new Audio(url);
     this._curAudio = audio;

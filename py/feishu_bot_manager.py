@@ -34,6 +34,7 @@ class FeishuBotConfig(BaseModel):
     reasoningVisible: bool    # 是否显示推理过程
     quickRestart: bool        # 快速重启指令开关
     enableTTS: bool         # 是否启用TTS
+    wakeWord: str              # 唤醒词
 
 
 class FeishuBotManager:
@@ -109,6 +110,7 @@ class FeishuBotManager:
             self.bot_client.appid = config.appid
             self.bot_client.secret = config.secret
             self.bot_client.enableTTS = config.enableTTS
+            self.bot_client.wakeWord = config.wakeWord
             
             # 设置弱引用以避免循环引用
             self.bot_client._manager_ref = weakref.ref(self)
@@ -368,6 +370,8 @@ class FeishuClient:
         self._shutdown_requested = False
         self._manager_ref = None
         self._ready_callback = None
+        self.enableTTS = False
+        self.wakeWord = None
         
     def sync_handle_message(self, data: P2ImMessageReceiveV1) -> None:
         """同步消息处理函数，用于注册到飞书事件分发器"""
@@ -463,6 +467,11 @@ class FeishuClient:
                 
                 # 记录文本内容
                 user_text = text
+                if self.wakeWord:
+                    if self.wakeWord not in user_text:
+                        logging.info(f"未检测到唤醒词: {self.wakeWord}")
+                        return
+
             except Exception as e:
                 logging.error(f"文本解析失败：{e}")
                 await self._send_text(msg, f"文本解析失败：{e}")
@@ -625,15 +634,9 @@ class FeishuClient:
                 # 将识别结果作为文本消息处理
                 user_text = transcribed_text
                 
-                # 处理快速重启命令（同文本消息）
-                if self.quickRestart and user_text:
-                    if "/重启" in user_text:
-                        self.memoryList[chat_id] = []
-                        await self._send_text(msg, "对话记录已重置。")
-                        return
-                    if "/restart" in user_text:
-                        self.memoryList[chat_id] = []
-                        await self._send_text(msg, "The conversation record has been reset.")
+                if self.wakeWord and user_text:
+                    if self.wakeWord not in user_text:
+                        logging.info(f"未检测到唤醒词: {self.wakeWord}")
                         return
                 
             except Exception as e:

@@ -4551,6 +4551,7 @@ if ('serviceWorker' in navigator) {
                           class="full-width-input"
                         >
                           <el-option label="Alt" value="Alt" ></el-option>
+                          <el-option :label="t('Space')" value=" " ></el-option>
                           <el-option label="Ctrl" value="Control" ></el-option>
                           <el-option label="Shift" value="Shift" ></el-option>
                           <el-option label="CapsLock" value="CapsLock" ></el-option>
@@ -9138,6 +9139,15 @@ if ('serviceWorker' in navigator) {
                             ></el-switch>
                           </el-form-item>
 
+                          <el-form-item :label="t('wakeWord')">
+                            <el-input
+                              v-model="feishuBotConfig.wakeWord"
+                              :placeholder="t('botWakeWordPlaceholder')"
+                              class="full-width-input"
+                              @change="autoSaveSettings"
+                            />
+                          </el-form-item>
+
                           <!-- APP 凭证 -->
                           <el-form-item label="APP ID" required>
                             <el-input
@@ -9334,6 +9344,15 @@ if ('serviceWorker' in navigator) {
                             ></el-switch>
                           </el-form-item>
 
+                          <el-form-item :label="t('wakeWord')">
+                            <el-input
+                              v-model="telegramBotConfig.wakeWord"
+                              :placeholder="t('botWakeWordPlaceholder')"
+                              class="full-width-input"
+                              @change="autoSaveSettings"
+                            />
+                          </el-form-item>
+
                           <!-- Bot Token -->
                           <el-form-item label="Bot Token" required>
                             <el-input
@@ -9498,6 +9517,15 @@ if ('serviceWorker' in navigator) {
                           <!-- 启用 TTS -->
                           <el-form-item :label="t('enableTTS')" class="form-item-align" label-position="left">
                             <el-switch v-model="discordBotConfig.enable_tts" @change="autoSaveSettings"></el-switch>
+                          </el-form-item>
+
+                          <el-form-item :label="t('wakeWord')">
+                            <el-input
+                              v-model="discordBotConfig.wakeWord"
+                              :placeholder="t('botWakeWordPlaceholder')"
+                              class="full-width-input"
+                              @change="autoSaveSettings"
+                            />
                           </el-form-item>
 
                           <!-- Bot Token -->
@@ -10543,7 +10571,7 @@ if ('serviceWorker' in navigator) {
                               <el-form-item :label="t('danmakuWakeWord')">
                                 <el-input
                                   v-model="liveConfig.wakeWord"
-                                  :placeholder="t('wakeWordPlaceholder')"
+                                  :placeholder="t('botWakeWordPlaceholder')"
                                   class="full-width-input"
                                   @change="autoSaveSettings"
                                 />

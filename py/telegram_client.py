@@ -14,6 +14,7 @@ class TelegramClient:
         self.reasoningVisible = False
         self.quickRestart = True
         self.enableTTS = False
+        self.wakeWord = None
         self.bot_token: str = ""
         self._is_ready = False
         self._manager_ref = None
@@ -90,6 +91,10 @@ class TelegramClient:
                 self.memoryList[chat_id] = []
                 await self._send_text(chat_id, "对话记录已重置。")
                 return
+        if self.wakeWord:
+            if self.wakeWord not in text:
+                logging.info(f"未检测到唤醒词: {self.wakeWord}")
+                return
         await self._process_llm(chat_id, text, [], msg.get("message_id"))
 
     # -------------------- 图片 --------------------
@@ -130,9 +135,14 @@ class TelegramClient:
             voice_bytes = await resp.read()
         # 调用本地 ASR
         text = await self._transcribe(voice_bytes)
+        if self.wakeWord:
+            if self.wakeWord not in text:
+                logging.info(f"未检测到唤醒词: {self.wakeWord}")
+                return
+
         if not text:
             await self._send_text(chat_id, "语音转文字失败")
-            return
+            return  
         await self._process_llm(chat_id, text, [], msg.get("message_id"))
 
     # -------------------- LLM 统一处理 --------------------

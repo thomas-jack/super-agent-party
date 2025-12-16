@@ -25,7 +25,7 @@ class DiscordBotConfig(BaseModel):
     reasoning_visible: bool = False
     quick_restart: bool = True
     enable_tts: bool = True
-
+    wakeWord: str              # 唤醒词
 
 # ------------------ 管理器 ------------------
 class DiscordBotManager:
@@ -182,7 +182,10 @@ class DiscordClient(discord.Client):
                     user_text += f"\n[语音转写] {asr_text}"
                 else:
                     user_text += "\n[语音转写失败]"
-
+        if self.config.wakeWord:
+            if self.config.wakeWord not in user_text: # 唤醒词检测
+                logging.info(f"未检测到唤醒词: {self.config.wakeWord}")
+                return
         # 2.4 最终 user 消息
         if has_media and user_text:
             user_content.append({"type": "text", "text": user_text})
