@@ -2460,6 +2460,7 @@ if ('serviceWorker' in navigator) {
                         <el-select
                           v-model="newTTSConfig.systemVoiceName"
                           class="full-width-input"
+                          filterable
                           :loading="isLoadingSystemVoices"
                           @change="autoSaveSettings"
                         >
@@ -4550,7 +4551,6 @@ if ('serviceWorker' in navigator) {
                           class="full-width-input"
                         >
                           <el-option label="Alt" value="Alt" ></el-option>
-                          <el-option :label="t('Space')" value=" " ></el-option>
                           <el-option label="Ctrl" value="Control" ></el-option>
                           <el-option label="Shift" value="Shift" ></el-option>
                           <el-option label="CapsLock" value="CapsLock" ></el-option>
@@ -4947,6 +4947,7 @@ if ('serviceWorker' in navigator) {
                           v-model="ttsSettings.systemVoiceName"
                           class="full-width-input"
                           :loading="isLoadingSystemVoices"
+                          filterable
                           @change="autoSaveSettings"
                         >
                           <el-option

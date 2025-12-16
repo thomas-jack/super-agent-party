@@ -790,7 +790,7 @@ async def tools_change_messages(request: ChatRequest, settings: dict):
             newtts_messages = f"你可以使用以下音色：\n{newttsList}\n以及特殊无声音色<silence>，被<silence>括起来的部分会不会进入语音合成，当你生成回答时，你需要以XML格式组织回答，将不同的旁白或角色的文字用<音色名></音色名>括起来，以表示这些话是使用这个音色，以控制不同TTS转换成对应音色。对于没有对应音色的部分，可以不括。即使音色名称不为英文，还是可以照样使用<音色名>使用该音色的文本</音色名>来启用对应音色。注意！如果是你扮演的角色的名字在音色列表里，你必须用这个音色标签将你扮演的角色说话的部分括起来！只要是非人物说话的部分，都视为旁白！角色音色应该标记在人物说话的前后！例如：<Narrator>现在是下午三点，她说道：</Narrator><角色名>”天气真好哇！“</角色名><silence>(眼睛笑成了一条线)</silence><Narrator>说完她伸了个懒腰。</Narrator>\n\n还有注意！<音色名></音色名>之间不能嵌套，只能并列，防止出现音色混乱！"
             content_prepend(request.messages, 'system', newtts_messages)
     if settings['ttsSettings']['enabled']:
-        tts_messages = f"你生成的文字将被语音合成，你需要将无需合成的部分前后加上<silence></silence>标签，例如：图片markdown、视频markdown、网址链接、人物内心独白等等。如果你没有使用</silence>标签，那么在<silence>之后的文字都会被静音，请注意！<silence>和</silence>之间不能有空格和回车，否则会导致解析失败！\n\n"
+        tts_messages = f"你生成的文字将被语音合成，你需要将无需合成的部分前后加上<silence></silence>标签，例如：图片markdown、视频markdown、网址链接、人物内心独白等等。如果你没有使用</silence>标签，那么在<silence>之后的文字都会被静音，请注意！<silence>和</silence>之间不能有空格和回车，否则会导致解析失败！\n\n如果没有什么需要静音的文字，也没有必要强行使用<silence></silence>标签，因为这样会导致语音合成速度变慢！\n\n"
         content_prepend(request.messages, 'system', tts_messages)
     if settings['vision']['desktopVision']:
         desktop_message = "\n\n用户与你对话时，会自动发给你当前的桌面截图。\n\n"
@@ -2741,6 +2741,8 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
     close_tag = "</think>"
     tools = request.tools or []
     tools = request.tools or []
+    extra = {}
+    reasoner_extra = {}
     if mcp_client_list:
         for server_name, mcp_client in mcp_client_list.items():
             if server_name in settings['mcpServers']:
@@ -3087,8 +3089,6 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
                     vendor = modelProvider['vendor']
                     break
             msg = await images_add_in_messages(reasoner_messages, images,settings)   
-            extra = {}
-            reasoner_extra = {}
             if chat_vendor == 'OpenAI':
                 extra['max_completion_tokens'] = request.max_tokens or settings['max_tokens']
             else:
@@ -3531,7 +3531,7 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
         return JSONResponse(content=response_dict)
     except Exception as e:
         return JSONResponse(
-            content={"error": {"message": e.message, "type": "api_error", "code": e.code}}
+            content={"error": {"message": str(e), "type": "api_error"}}
         )
 
 # 在现有路由后添加以下代码
@@ -3580,9 +3580,8 @@ async def get_models():
             status_code=e.status_code,
             content={
                 "error": {
-                    "message": e.message,
-                    "type": e.type or "api_error",
-                    "code": e.code
+                    "message": str(e),
+                    "type": "api_error",
                 }
             }
         )
@@ -3632,9 +3631,8 @@ async def get_agents():
             status_code=e.status_code,
             content={
                 "error": {
-                    "message": e.message,
-                    "type": e.type or "api_error",
-                    "code": e.code
+                    "message": str(e),
+                    "type": "api_error",
                 }
             }
         )
@@ -4993,79 +4991,106 @@ async def text_to_speech(request: Request):
                 }
             )
         elif tts_engine == 'systemtts':
-            import pyttsx3
+            import platform
+            import subprocess
+            import uuid
+            # 注意：pyttsx3 不要在全局导入，防止在 Mac 上干扰主线程
+
             # ==========================================
-            # System TTS (pyttsx3) 引擎 - 修复版
+            # System TTS (Cross-Platform) 引擎
             # ==========================================
             
-            # 获取配置参数
-            system_voice_name = tts_settings.get('systemVoiceName', None) # 指定语音ID/名称
-            system_rate = tts_settings.get('systemRate', 200)             # 语速
+            # 1. 获取配置参数
+            system_voice_name = tts_settings.get('systemVoiceName', None)
+            system_rate = tts_settings.get('systemRate', 200)
             
             # 移动端优化：适当降低语速
             if mobile_optimized:
                 system_rate = int(system_rate * 0.95)
             
-            # --- 定义同步合成函数 (将在线程中运行) ---
+            # 2. 定义同步合成函数 (将在线程池中运行)
             def sync_generate_wav(input_text: str, voice_name: str, rate: int, req_index: int) -> bytes:
                 """
-                同步执行pyttsx3合成，使用唯一文件名防止并发冲突。
+                跨平台同步合成：
+                - Windows/Linux: 使用 pyttsx3
+                - macOS: 使用系统原生 'say' 命令 (避开 Cocoa 线程限制)
                 """
-                # 初始化引擎
-                # 注意：pyttsx3在某些系统上初始化开销较大，但在线程中隔离比较安全
-                engine = pyttsx3.init()
-                
-                # 1. 设置参数
-                engine.setProperty('rate', rate)
-                
-                # 2. 设置音色 (尝试匹配名称)
-                if voice_name:
-                    voices = engine.getProperty('voices')
-                    for voice in voices:
-                        # 简单的模糊匹配，包含名称即可
-                        if voice_name.lower() in voice.name.lower() or voice_name == voice.id:
-                            engine.setProperty('voice', voice.id)
-                            break
-                
-                # 3. 生成唯一临时文件名
-                # 使用 UUID + index 确保绝对唯一，避免多线程写入同一个文件
                 unique_suffix = uuid.uuid4().hex[:8]
                 temp_file = f"temp_tts_{req_index}_{unique_suffix}.wav"
+                # 假设 TOOL_TEMP_DIR 是你全局定义的临时目录，如果没有请改为 "." 或 os.getcwd()
                 temp_filename = os.path.join(TOOL_TEMP_DIR, temp_file)
                 
                 wav_data = b""
-                
+                current_os = platform.system()
+
                 try:
-                    # 4. 保存到临时文件 (这是阻塞操作)
-                    engine.save_to_file(input_text, temp_filename)
-                    engine.runAndWait()
-                    
-                    # 5. 读取文件内容到内存
+                    # -------------------------------------------------
+                    # 分支 A: macOS 系统 (使用 subprocess 调用 say)
+                    # -------------------------------------------------
+                    if current_os == 'Darwin':
+                        # --data-format=LEI16@22050 强制输出标准 WAV (16bit Little Endian, 22.05kHz)
+                        cmd = ['say', '-o', temp_filename, '--data-format=LEI16@22050', input_text]
+                        
+                        if voice_name:
+                            cmd.extend(['-v', voice_name])
+                        
+                        if rate:
+                            # 简单传递语速，虽然 pyttsx3 和 say 的数值标准不同，但在合理范围内都可用
+                            cmd.extend(['-r', str(rate)])
+
+                        # 执行命令
+                        subprocess.run(cmd, check=True, stderr=subprocess.PIPE)
+
+                    # -------------------------------------------------
+                    # 分支 B: Windows / Linux (使用 pyttsx3)
+                    # -------------------------------------------------
+                    else:
+                        import pyttsx3
+                        # 在子线程内初始化，隔离环境
+                        engine = pyttsx3.init()
+                        engine.setProperty('rate', rate)
+                        
+                        if voice_name:
+                            voices = engine.getProperty('voices')
+                            for voice in voices:
+                                # 模糊匹配名称或精确匹配ID
+                                if voice_name.lower() in voice.name.lower() or voice_name == voice.id:
+                                    engine.setProperty('voice', voice.id)
+                                    break
+                        
+                        # save_to_file 是阻塞操作，在 Windows 上安全
+                        engine.save_to_file(input_text, temp_filename)
+                        engine.runAndWait()
+
+                    # -------------------------------------------------
+                    # 读取生成的音频
+                    # -------------------------------------------------
                     if os.path.exists(temp_filename):
                         with open(temp_filename, 'rb') as f:
                             wav_data = f.read()
                     else:
-                        raise Exception("临时音频文件生成失败")
-                        
+                        raise Exception("TTS引擎未能生成音频文件")
+
+                except subprocess.CalledProcessError as e:
+                    print(f"[SystemTTS-Mac] 命令执行失败: {e.stderr.decode() if e.stderr else str(e)}")
+                    raise Exception("macOS TTS 生成失败")
                 except Exception as e:
-                    print(f"[SystemTTS]合成出错: {str(e)}")
+                    print(f"[SystemTTS] 合成出错 ({current_os}): {str(e)}")
                     raise e
                 finally:
-                    # 6. 【关键】清理临时文件
-                    # 无论成功还是失败，只要文件存在就删除
+                    # 清理临时文件
                     if os.path.exists(temp_filename):
                         try:
                             os.remove(temp_filename)
-                        except Exception as cleanup_error:
-                            print(f"[SystemTTS]清理临时文件失败: {cleanup_error}")
-                            
+                        except:
+                            pass
+                
                 return wav_data
 
-            # --- 异步生成器 ---
+            # 3. 异步生成流程
             async def generate_audio():
                 try:
-                    # 将阻塞的合成函数放入线程池运行
-                    # 传入 index 用于生成文件名日志
+                    # 将同步阻塞操作放入线程池
                     wav_content = await asyncio.to_thread(
                         sync_generate_wav, 
                         text, 
@@ -5075,31 +5100,24 @@ async def text_to_speech(request: Request):
                     )
                     
                     if not wav_content:
-                        raise HTTPException(status_code=500, detail="SystemTTS 生成音频内容为空")
+                        raise HTTPException(status_code=500, detail="SystemTTS 生成内容为空")
 
-                    # 格式转换逻辑
+                    # 格式转换逻辑 (WAV -> OPUS)
+                    final_audio = wav_content
                     if target_format == "opus":
-                        # 必须确保 convert_to_opus_simple 函数在上下文中可用
-                        # 这里假设它接收 wav bytes 并返回 opus bytes
-                        opus_audio = await convert_to_opus_simple(wav_content)
-                        final_audio = opus_audio
-                    else:
-                        # 默认为 wav
-                        final_audio = wav_content
+                        # 确保你有 convert_to_opus_simple 函数可用
+                        final_audio = await convert_to_opus_simple(wav_content)
                     
-                    # 分块返回数据 (模拟流式)
+                    # 分块返回 (模拟流式)
                     chunk_size = 4096
                     for i in range(0, len(final_audio), chunk_size):
                         yield final_audio[i:i + chunk_size]
-                        # 让出控制权，避免密集计算阻塞 Loop
-                        await asyncio.sleep(0) 
+                        await asyncio.sleep(0) # 让出控制权
                         
-                except HTTPException:
-                    raise
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=f"SystemTTS 处理失败: {str(e)}")
 
-            # --- 设置响应头 ---
+            # 4. 设置响应头
             if target_format == "opus":
                 media_type = "audio/ogg"
                 filename = f"tts_{index}.opus"
@@ -5116,7 +5134,6 @@ async def text_to_speech(request: Request):
                     "X-Audio-Format": target_format
                 }
             )
-
         
         raise HTTPException(status_code=400, detail="不支持的TTS引擎")
     

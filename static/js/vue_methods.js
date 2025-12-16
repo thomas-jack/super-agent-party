@@ -1222,6 +1222,17 @@ let vue_methods = {
 
     async handleKeyDown(event) {
       if (event?.repeat) return;
+
+      if (event.code === 'Space') {
+        event.preventDefault() // 防止页面滚动
+        if (
+          this.readState.ttsChunks.length > 0 &&
+          !this.readState.isPlaying
+        ) {
+          this.playNextSegmentOnce()
+        }
+        return;
+      }
       if (event?.key === 'Enter' && this.activeMenu === 'home') {
         if (event?.shiftKey) {
           // 如果同时按下了Shift键，则不阻止默认行为，允许换行
@@ -8477,7 +8488,7 @@ stopTTSActivities() {
     this.scrollToCurrentChunk(curIdx);
     try {
       this.currentReadAudio = new Audio(audioChunk.url);
-
+      this.currentReadAudio.volume = this.vrmOnline ? 0.0000001 : 1; // VRM在线时静音
       this.sendTTSStatusToVRM('startSpeaking', {
         audioDataUrl: this.cur_audioDatas[curIdx],
         chunkIndex: curIdx,
@@ -9705,6 +9716,7 @@ async doPlayAudio(url, idx, continuous = false) {
 
     const chunk = this.readState.audioChunks[idx];
     if (chunk.base64 == null) throw new Error('No base64');
+    this._curAudio.volume = this.vrmOnline ? 0.0000001 : 1; // VRM在线时静音
     this.sendTTSStatusToVRM('startSpeaking', {
       audioDataUrl: chunk.base64,
       chunkIndex: idx,
