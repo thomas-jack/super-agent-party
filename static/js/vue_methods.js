@@ -10311,15 +10311,25 @@ clearSegments() {
     // 下面逻辑你原来就有，只把 url 换成异步得到的即可
     this.showExtensionsDialog = false;
     this.messages[0].content = extension.systemPrompt || '';
-
+    let windowWidth = 800;
+    let windowHeight = 600;
     if (window.electronAPI && window.electronAPI.openExtensionWindow) {
       try {
+        if (extension.enableVrmWindowSize){
+          console.log('VRM window size enabled')
+          windowWidth = this.VRMConfig.windowWidth;
+          windowHeight = this.VRMConfig.windowHeight
+        }
+        else{
+          windowWidth = extension.width || 800;
+          windowHeight = extension.height || 600;
+        }
         const windowId = await window.electronAPI.openExtensionWindow(`${this.partyURL}${url}`, {
           id: extension.id,
           name: extension.name,
           transparent: extension.transparent || false,
-          width: extension.width || 800,
-          height: extension.height || 600,
+          width: windowWidth,
+          height: windowHeight,
         });
         console.log(`Extension window opened with ID: ${windowId}`);
       } catch (error) {
