@@ -7,19 +7,25 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==========================================
-// 1. 定义 A2UI 渲染组件 (递归版：支持 List/Group/Divider/Card嵌套)
+// 1. 定义 A2UI 渲染组件 (支持 Markdown 渲染)
 // ==========================================
 const A2UIRendererComponent = {
   name: 'A2UIRenderer',
-  // 允许组件在模板中调用自己，实现无限嵌套
   components: {}, 
   template: `
     <div :class="['a2ui-root', isSelfContained ? 'a2ui-root-clean' : 'a2ui-root-boxed']">
       
-      <!-- 根标题 (非 Card/Group 时显示) -->
+      <!-- 根标题 -->
       <div v-if="uiConfig.props && uiConfig.props.title && !isSelfContained" class="a2ui-title">
         {{ uiConfig.props.title }}
       </div>
+      <!-- 根描述 (也支持 MD) -->
+      <div 
+        v-if="uiConfig.props && uiConfig.props.description && !isSelfContained" 
+        class="a2ui-text-content markdown-body" 
+        style="color: var(--el-text-color-secondary); font-size: 13px; margin-bottom: 15px;"
+        v-html="renderMarkdown(uiConfig.props.description)"
+      ></div>
 
       <el-form :model="formData" label-position="top" size="default" @submit.prevent>
         
@@ -27,7 +33,7 @@ const A2UIRendererComponent = {
           
           <template v-for="(item, index) in normalizedChildren" :key="index">
             
-            <!-- === 1. Input 输入框 === -->
+            <!-- 1. Input -->
             <el-form-item 
               v-if="item.type === 'Input'" 
               :label="item.props.label" 
@@ -46,7 +52,7 @@ const A2UIRendererComponent = {
               </el-input>
             </el-form-item>
 
-            <!-- === 2. Select 下拉框 === -->
+            <!-- 2. Select -->
             <el-form-item 
               v-if="item.type === 'Select'" 
               :label="item.props.label"
@@ -54,31 +60,39 @@ const A2UIRendererComponent = {
             >
               <el-select 
                 v-model="formData[item.props.key]" 
-                :placeholder="item.props.placeholder" 
+                :placeholder="item.props.placeholder || '请选择'" 
                 style="width: 100%"
                 size="large"
               >
-                <el-option v-for="opt in item.props.options" :key="opt" :label="opt" :value="opt" />
+                <el-option 
+                  v-for="(opt, oIdx) in item.props.options" 
+                  :key="oIdx" 
+                  :label="isObj(opt) ? opt.label : opt" 
+                  :value="isObj(opt) ? opt.value : opt" 
+                />
               </el-select>
             </el-form-item>
 
-            <!-- === 3. Text 文本 === -->
+            <!-- 3. Text (★ 修复点：使用 v-html + Markdown) -->
+            <!-- 添加 markdown-body 类以复用你的全局 MD 样式 -->
             <div 
               v-if="item.type === 'Text'" 
-              class="a2ui-text-content"
-            >
-              {{ item.props.content }}
-            </div>
+              class="a2ui-text-content markdown-body"
+              v-html="renderMarkdown(item.props.content)"
+            ></div>
 
-            <!-- === 4. Divider 分割线 (新增) === -->
+            <!-- 4. Divider -->
             <el-divider 
               v-if="item.type === 'Divider'" 
               style="margin: 18px 0; border-color: var(--el-border-color-lighter);" 
             />
 
-            <!-- === 5. Group 分组容器 (新增递归) === -->
+            <!-- 5. Group -->
             <div v-if="item.type === 'Group'" class="a2ui-group-container">
-              <!-- 递归调用自己渲染子元素 -->
+              <!-- 如果 Group 也有标题，也可以显示一下 -->
+               <div v-if="item.props && item.props.title" style="width: 100%; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                  {{ item.props.title }}
+               </div>
               <a2-u-i-renderer 
                 v-for="(child, cIdx) in item.children" 
                 :key="cIdx" 
@@ -88,7 +102,7 @@ const A2UIRendererComponent = {
               />
             </div>
 
-            <!-- === 6. List 新闻列表 (新增) === -->
+            <!-- 6. List -->
             <div v-if="item.type === 'List'" class="a2ui-list">
               <div 
                 v-for="(listItem, lIdx) in item.props.items" 
@@ -105,7 +119,7 @@ const A2UIRendererComponent = {
               </div>
             </div>
 
-            <!-- === 7. Card 卡片 (支持嵌套) === -->
+            <!-- 7. Card -->
             <el-card 
               v-if="item.type === 'Card'" 
               shadow="hover" 
@@ -118,7 +132,6 @@ const A2UIRendererComponent = {
                 </div>
               </template>
               
-              <!-- 情况 A: 有子组件 (嵌套) -->
               <div v-if="item.children && item.children.length > 0">
                  <a2-u-i-renderer 
                     v-for="(child, ccIdx) in item.children" 
@@ -128,23 +141,21 @@ const A2UIRendererComponent = {
                  />
               </div>
 
-              <!-- 情况 B: 纯内容描述 -->
-              <div v-else class="a2ui-card-desc">
+              <!-- ★ 修复点：Card 内容也支持 Markdown -->
+              <div v-else class="a2ui-card-desc markdown-body">
                 <div v-if="Array.isArray(item.props.content)">
-                    <div v-for="(line, lIdx) in item.props.content" :key="lIdx">{{ line }}</div>
+                    <div v-for="(line, lIdx) in item.props.content" :key="lIdx" v-html="renderMarkdown(line)"></div>
                 </div>
-                <div v-else-if="item.props.content" style="white-space: pre-wrap;">{{ item.props.content }}</div>
-                <div v-else-if="item.props.description">{{ item.props.description }}</div>
+                <div v-else-if="item.props.content" v-html="renderMarkdown(item.props.content)"></div>
+                <div v-else-if="item.props.description" v-html="renderMarkdown(item.props.description)"></div>
               </div>
 
-              <!-- Tags -->
               <div class="tags" v-if="item.props.tags" style="margin-top: 12px;">
                 <el-tag v-for="tag in item.props.tags" :key="tag" size="default" effect="plain" style="margin-right: 6px;">
                   {{ tag }}
                 </el-tag>
               </div>
 
-              <!-- Actions -->
               <div v-if="item.props.actions" class="a2ui-card-actions">
                 <el-button 
                     v-for="(btn, bIdx) in item.props.actions"
@@ -158,12 +169,25 @@ const A2UIRendererComponent = {
               </div>
             </el-card>
 
-            <!-- === 8. Button 按钮 === -->
+            <!-- 8. Button (Description 也支持 Markdown) -->
             <div 
               v-if="item.type === 'Button'" 
               :style="buttonStyle"
             >
               <el-button 
+                v-if="item.props.description"
+                :type="resolveBtnType(item.props)"
+                @click="handleAction(item)" 
+                :disabled="isSubmitted"
+                size="large"
+                style="height: auto; padding: 12px 20px; text-align: left; display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.4; width: 100%;"
+              >
+                <span style="font-weight: 600; font-size: 15px;">{{ item.props.label }}</span>
+                <span style="font-size: 12px; opacity: 0.8; font-weight: normal; margin-top: 4px;" v-html="renderMarkdown(item.props.description)"></span>
+              </el-button>
+
+              <el-button 
+                v-else
                 :type="resolveBtnType(item.props)" 
                 @click="handleAction(item)" 
                 :disabled="isSubmitted"
@@ -190,9 +214,7 @@ const A2UIRendererComponent = {
       if (Array.isArray(this.config)) return { children: this.config };
       return this.config || {};
     },
-    // 将 Group 也视为自包含容器，不加外框，由内部元素决定样式
     isSelfContained() {
-      // 只要不是 Input/Select/Text 这种纯表单元素，通常都当作自包含处理，避免嵌套双重边框
       return ['Card', 'Group', 'List', 'Divider'].includes(this.uiConfig.type);
     },
     normalizedChildren() {
@@ -220,18 +242,37 @@ const A2UIRendererComponent = {
   },
   created() {
     this.normalizedChildren.forEach((child, idx) => {
-      // 自动为 Input 绑定 Key，防止无 Key 时无法输入
       if (['Input', 'Select'].includes(child.type)) {
          const key = (child.props && child.props.key) || ('input_' + idx);
-         this.formData[key] = '';
+         if (this.formData[key] === undefined) {
+            this.formData[key] = '';
+         }
       }
     });
   },
   methods: {
+    // 渲染 Markdown 的核心方法
+    renderMarkdown(text) {
+        if (!text) return '';
+        // 尝试使用全局定义的 md 对象
+        if (typeof md !== 'undefined' && md.render) {
+            // 使用 renderInline 可以避免最外层包裹 <p> 标签，如果是短文本更合适
+            // 但对于包含列表的内容，必须用 render
+            if (text.includes('\n') || text.includes('- ')) {
+                return md.render(text);
+            }
+            return md.renderInline(text);
+        }
+        // 兜底：如果没有 md，简单的换行处理
+        return text.replace(/\n/g, '<br>');
+    },
+    isObj(val) {
+      return val && typeof val === 'object';
+    },
     resolveBtnType(props) {
         if (props.variant === 'primary') return 'primary';
         if (props.variant === 'danger') return 'danger';
-        return props.type || 'default'; // 兼容旧版 type
+        return props.type || 'default';
     },
     handleAction(item, extraValue) {
       this.isSubmitted = true;
@@ -243,7 +284,20 @@ const A2UIRendererComponent = {
       else if (item.props.action === 'submit') {
         let details = [];
         for (const [key, val] of Object.entries(this.formData)) {
-             details.push(`${key}：${val}`);
+             const field = this.normalizedChildren.find(c => c.props && c.props.key === key);
+             const label = field ? field.props.label : key;
+             
+             let displayVal = val;
+             if (field && field.type === 'Select' && Array.isArray(field.props.options)) {
+                 const selectedOpt = field.props.options.find(o => 
+                    (this.isObj(o) ? o.value : o) === val
+                 );
+                 if (selectedOpt && this.isObj(selectedOpt)) {
+                     displayVal = `${selectedOpt.label} (${val})`; 
+                 }
+             }
+
+             details.push(`${label}：${displayVal}`);
         }
         if (details.length > 0) payload = `表单提交：\n${details.join('\n')}`;
       } 
@@ -256,7 +310,6 @@ const A2UIRendererComponent = {
     handleManualAction(actionName, title) {
         this.$emit('action', `选择了：${title} - ${actionName}`);
     },
-    // 递归组件必须显式转发事件
     relayAction(payload) {
         this.$emit('action', payload);
     }

@@ -5060,3 +5060,19 @@ body {
   /* 确保在深色模式下 Tag 不会太刺眼 */
   filter: brightness(0.95);
 }
+
+/* 修复 A2UI 内 Markdown 内容的间距 */
+.a2ui-text-content p, 
+.a2ui-card-desc p {
+  margin-bottom: 8px; /* 减小段落间距 */
+  margin-top: 0;
+}
+.a2ui-text-content p:last-child, 
+.a2ui-card-desc p:last-child {
+  margin-bottom: 0;
+}
+.a2ui-text-content ul, 
+.a2ui-card-desc ul {
+  padding-left: 20px; /* 确保列表符号显示 */
+  margin: 5px 0;
+}
