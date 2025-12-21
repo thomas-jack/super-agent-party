@@ -130,6 +130,7 @@ async def handle_office_document(content, ext):
     # Windows平台扩展
     if IS_WINDOWS:
         handler['ppt'] = handle_ppt
+        handler['doc'] = handle_doc
     
     handler_func = handler.get(ext)
     
@@ -446,6 +447,38 @@ def _process_ppt(content):
     finally:
         pythoncom.CoUninitialize()
         os.unlink(tmp_path)
+
+# 2. 实现 handle_doc 函数
+async def handle_doc(content):
+    if not IS_WINDOWS:
+        raise NotImplementedError("DOC格式仅支持在Windows系统处理")
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _process_doc, content)
+
+def _process_doc(content):
+    import win32com.client
+    import tempfile
+    import pythoncom
+    
+    pythoncom.CoInitialize()
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.doc', delete=False) as tmp_file:
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+            
+        word = win32com.client.Dispatch("Word.Application")
+        word.Visible = False
+        doc = word.Documents.Open(tmp_path)
+        text = doc.Range().Text
+        doc.Close()
+        word.Quit()
+        return text.strip()
+    except Exception as e:
+        raise RuntimeError(f"DOC解析失败: {str(e)}")
+    finally:
+        pythoncom.CoUninitialize()
+        if 'tmp_path' in locals():
+            os.unlink(tmp_path)
 
 async def get_file_content(file_url):
     """异步获取文件内容（增加编码异常处理）"""
