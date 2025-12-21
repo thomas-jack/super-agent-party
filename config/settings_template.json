@@ -27,6 +27,9 @@
       "asyncTools": {
         "enabled": false
       },
+      "a2ui": {
+        "enabled": true
+      },
       "time": {
         "enabled": false,
         "triggerMode": "beforeThinking"
@@ -392,6 +395,7 @@
     "VRMConfig": {
       "name": "default",
       "enabledExpressions": false,
+      "enabledMotions": false,
       "selectedModelId": "alice", 
       "windowWidth": 540,
       "windowHeight": 960,

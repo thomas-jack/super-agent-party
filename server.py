@@ -817,8 +817,92 @@ async def tools_change_messages(request: ChatRequest, settings: dict):
         text2img_messages = "\n\n当你使用画图工具后，必须将图片的URL放在markdown的图片标签中，例如：\n\n<silence>![图片名](图片URL)</silence>\n\n，图片markdown必须另起并且独占一行！请主动发给用户，工具返回的结果，用户看不到！<silence>和</silence>是控制TTS的静音标签，表示这个图片部分不会进入语音合成\n\n你必须在回复中正确使用 <silence> 标签来包裹图片的 Markdown 语法\n\n注意！！！<silence>和</silence>与图片的 Markdown 语法之间不能有空格和回车，会导致解析失败！\n\n"
         content_append(request.messages, 'system', text2img_messages)
     if settings['VRMConfig']['enabledExpressions']:
-        Expression_messages = "\n\n你可以使用以下表情：<happy> <angry> <sad> <neutral> <surprised> <relaxed>\n\n你可以在句子开头插入表情符号以驱动人物的当前表情，注意！你需要将表情符号放到句子的开头，才能在说这句话的时候同步做表情，例如：<angry>我真的生气了。<surprised>哇！<happy>我好开心。\n\n一定要把表情符号跟要做表情的句子放在同一行，如果表情符号和要做表情的句子中间有换行符，表情也将不会生效，例如：\n\n<happy>\n我好开心。\n\n此时，表情符号将不会生效。"
+        Expression_messages = "\n\n你可以使用以下表情：<happy> <angry> <sad> <neutral> <surprised> <relaxed>\n\n你可以在句子开头插入表情符号以驱动人物的当前表情，注意！你需要将表情符号放到句子的开头（如果有音色标签，就放到音色标签之后即可），才能在说这句话的时候同步做表情，例如：<angry>我真的生气了。<surprised>哇！<happy>我好开心。\n\n一定要把表情符号跟要做表情的句子放在同一行，如果表情符号和要做表情的句子中间有换行符，表情也将不会生效，例如：\n\n<happy>\n我好开心。\n\n此时，表情符号将不会生效。"
         content_append(request.messages, 'system', Expression_messages)
+    if settings['VRMConfig']['enabledMotions']:
+        # 1. 合并动作列表
+        motions = settings['VRMConfig']['defaultMotions'] + settings['VRMConfig']['userMotions']
+        # 2. 给每个动作加上 <>
+        motion_tags = [f"<{m.get('name','')}>" for m in motions]
+        print(motion_tags)
+        # 3. 拼成可用表情提示
+        Motion_messages = (
+            "\n\n你可以使用以下动作："
+            + ", ".join(motion_tags) +
+            "\n\n你可以在句子开头插入动作符号以驱动人物的当前动作，注意！你需要将动作符号放到句子的开头（如果有音色标签，就放到音色标签之后即可），"
+            "才能在说这句话的时候同步做动作，例如：<scratchHead>我真的生气了。<playFingers>哇！<akimbo>我好开心。\n\n"
+            "一定要把动作符号跟要做动作的句子放在同一行，如果动作符号和要做动作的句子中间有换行符，"
+            "动作也将不会生效，例如：\n\n<playFingers>\n我好开心。\n\n此时，动作符号将不会生效。"
+        )
+
+        content_append(request.messages, 'system', Motion_messages)
+    if settings['tools']['a2ui']['enabled']:
+        A2UI_messages = """
+除了使用自然语言回答用户问题外，你还拥有一个特殊能力：**渲染 A2UI 界面**。
+
+# Capability: A2UI
+当用户的请求涉及到**数据收集、选项选择、富文本展示、表单提交**、**明确的交互操作**或**你需要进一步明确用户需求**时，请不要只用文字描述，而是直接生成 A2UI 代码来呈现界面。
+
+# Formatting Rules (格式规则)
+1. 当你决定生成 UI 时，必须将 A2UI 的 JSON 数据包裹在 Markdown 代码块中，并标记为 `a2ui`。
+   格式如下：
+   ```a2ui
+   { "type": "...", ... }
+   ```
+2. **混合交互**：你可以在输出 A2UI 代码块的前后穿插自然的解释性文字。例如：“好的，请填写这张表单：[代码块] 填好后告诉我。”
+3. **JSON 规范**：确保 JSON 语法严格正确。
+
+# Trigger Rules (何时使用 A2UI)
+- **不需要时**：如果用户只是闲聊或询问简单知识（如“你好”、“今天天气如何”），仅使用纯文本回复。
+- **需要时**：
+  - 用户需要做选择题时 -> 输出一组 Radio 或 Button。
+  - 用户需要输入复杂信息时 -> 输出 Input 或 Form。
+  - 需要展示结构化信息（如商品详情、航班信息）时 -> 输出 Card 或 List。
+
+# A2UI Schema Short-Reference (简要结构定义)
+(在此处填入你的 A2UI 字段规则，越精简越好，告诉 AI 有哪些组件可用)
+- Supported Types: `Button`, `Input`, `Card`, `Text`, `Select`
+- Structure: `{ "type": "...", "props": {...} }`
+
+# Few-Shot Examples
+
+## Example 1 (纯文本场景)
+User: 鲁迅是谁？
+Assistant: 鲁迅是中国著名的文学家、思想家、革命家，原名周树人。代表作有《狂人日记》、《阿Q正传》等。
+
+## Example 2 (需要 UI 介入 - 表单)
+User: 我想报名参加下周的活动。
+Assistant: 没问题，我很乐意帮你报名。请填写下方的登记表，我会帮你提交系统：
+
+```a2ui
+{
+  "type": "Form",
+  "children": [
+    { "type": "Input", "props": { "label": "姓名", "key": "name" } },
+    { "type": "Input", "props": { "label": "手机号", "key": "phone" } },
+    { "type": "Button", "props": { "label": "立即报名", "action": "submit" } }
+  ]
+}
+```
+
+填好后请点击按钮。
+
+## Example 3 (需要 UI 介入 - 选项)
+User: 帮我推荐几款咖啡。
+Assistant: 根据搜索结果，我推荐以下几种选择，你可以直接点击查看详情：
+
+```a2ui
+{
+  "type": "Group",
+  "children": [
+    { "type": "Button", "props": { "label": "美式 (¥15)" } },
+    { "type": "Button", "props": { "label": "拿铁 (¥20)" } },
+    { "type": "Button", "props": { "label": "燕麦拿铁 (¥25)" } }
+  ]
+}
+```
+"""
+        content_append(request.messages, 'system', A2UI_messages)
     print(f"系统提示：{request.messages[0]['content']}")
     return request
 

@@ -174,6 +174,9 @@ let vue_data = {
       asyncTools: {
         enabled: false,
       },
+      a2ui: {
+        enabled: true,
+      },
       time: {
         enabled: false,
         triggerMode: 'beforeThinking',
@@ -416,7 +419,7 @@ let vue_data = {
     editingAgent: false,
     currentLanguage: 'zh-CN',
     translations: translations,
-    themeValues: ['light', 'dark','midnight','desert','neon','marshmallow','ink','party'],
+    themeValues: ['light', 'dark','midnight','desert','neon','marshmallow','ink','party',"rainbow"],
     isBrowserOpening: false,
     expandedSections: {
       settingsBase: true,
@@ -692,6 +695,7 @@ let vue_data = {
     VRMConfig: {
       name: 'default',
       enabledExpressions: false,
+      enabledMotions: false,
       selectedModelId: 'alice', // 默认选择Alice模型
       windowWidth: 540,
       windowHeight: 960,

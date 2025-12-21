@@ -6,7 +6,319 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 100);
 });
 
-// 创建Vue应用
+// ==========================================
+// 1. 定义 A2UI 渲染组件 (支持 Markdown 渲染)
+// ==========================================
+const A2UIRendererComponent = {
+  name: 'A2UIRenderer',
+  components: {}, 
+  template: `
+    <div :class="['a2ui-root', isSelfContained ? 'a2ui-root-clean' : 'a2ui-root-boxed']">
+      
+      <!-- 根标题 -->
+      <div v-if="uiConfig.props && uiConfig.props.title && !isSelfContained" class="a2ui-title">
+        {{ uiConfig.props.title }}
+      </div>
+      <!-- 根描述 (也支持 MD) -->
+      <div 
+        v-if="uiConfig.props && uiConfig.props.description && !isSelfContained" 
+        class="a2ui-text-content markdown-body" 
+        style="color: var(--el-text-color-secondary); font-size: 13px; margin-bottom: 15px;"
+        v-html="renderMarkdown(uiConfig.props.description)"
+      ></div>
+
+      <el-form :model="formData" label-position="top" size="default" @submit.prevent>
+        
+        <div :class="containerClass">
+          
+          <template v-for="(item, index) in normalizedChildren" :key="index">
+            
+            <!-- 1. Input -->
+            <el-form-item 
+              v-if="item.type === 'Input'" 
+              :label="item.props.label" 
+              style="margin-bottom: 15px; flex: 1; min-width: 200px;"
+            >
+              <el-input 
+                v-model="formData[item.props.key || ('input_'+index)]" 
+                :placeholder="item.props.placeholder || '请输入...'"
+                size="large"
+              >
+                <template #append v-if="item.props.action === 'search'">
+                  <el-button @click="handleAction(item, formData[item.props.key || ('input_'+index)])">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                  </el-button>
+                </template>
+              </el-input>
+            </el-form-item>
+
+            <!-- 2. Select -->
+            <el-form-item 
+              v-if="item.type === 'Select'" 
+              :label="item.props.label"
+              style="margin-bottom: 15px; flex: 1;"
+            >
+              <el-select 
+                v-model="formData[item.props.key]" 
+                :placeholder="item.props.placeholder || '请选择'" 
+                style="width: 100%"
+                size="large"
+              >
+                <el-option 
+                  v-for="(opt, oIdx) in item.props.options" 
+                  :key="oIdx" 
+                  :label="isObj(opt) ? opt.label : opt" 
+                  :value="isObj(opt) ? opt.value : opt" 
+                />
+              </el-select>
+            </el-form-item>
+
+            <!-- 3. Text (★ 修复点：使用 v-html + Markdown) -->
+            <!-- 添加 markdown-body 类以复用你的全局 MD 样式 -->
+            <div 
+              v-if="item.type === 'Text'" 
+              class="a2ui-text-content markdown-body"
+              v-html="renderMarkdown(item.props.content)"
+            ></div>
+
+            <!-- 4. Divider -->
+            <el-divider 
+              v-if="item.type === 'Divider'" 
+              style="margin: 18px 0; border-color: var(--el-border-color-lighter);" 
+            />
+
+            <!-- 5. Group -->
+            <div v-if="item.type === 'Group'" class="a2ui-group-container">
+              <!-- 如果 Group 也有标题，也可以显示一下 -->
+               <div v-if="item.props && item.props.title" style="width: 100%; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                  {{ item.props.title }}
+               </div>
+              <a2-u-i-renderer 
+                v-for="(child, cIdx) in item.children" 
+                :key="cIdx" 
+                :config="child"
+                @action="relayAction"
+                style="flex: 1; min-width: auto;" 
+              />
+            </div>
+
+            <!-- 6. List -->
+            <div v-if="item.type === 'List'" class="a2ui-list">
+              <div 
+                v-for="(listItem, lIdx) in item.props.items" 
+                :key="lIdx" 
+                class="a2ui-list-item"
+                @click="handleManualAction('点击条目', listItem.title)"
+              >
+                <div class="a2ui-list-title">{{ listItem.title }}</div>
+                <div class="a2ui-list-desc">{{ listItem.description }}</div>
+                <div class="a2ui-list-meta">
+                  <span v-if="listItem.source" class="tag">{{ listItem.source }}</span>
+                  <span class="time">{{ listItem.timestamp }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 7. Card -->
+            <el-card 
+              v-if="item.type === 'Card'" 
+              shadow="hover" 
+              class="a2ui-inner-card"
+            >
+              <template #header v-if="item.props.title">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-weight: bold; font-size: 16px;">{{ item.props.title }}</span>
+                  <span v-if="item.props.subtitle" style="font-size: 12px; color: #909399; font-weight: normal;">{{ item.props.subtitle }}</span>
+                </div>
+              </template>
+              
+              <div v-if="item.children && item.children.length > 0">
+                 <a2-u-i-renderer 
+                    v-for="(child, ccIdx) in item.children" 
+                    :key="ccIdx" 
+                    :config="child"
+                    @action="relayAction"
+                 />
+              </div>
+
+              <!-- ★ 修复点：Card 内容也支持 Markdown -->
+              <div v-else class="a2ui-card-desc markdown-body">
+                <div v-if="Array.isArray(item.props.content)">
+                    <div v-for="(line, lIdx) in item.props.content" :key="lIdx" v-html="renderMarkdown(line)"></div>
+                </div>
+                <div v-else-if="item.props.content" v-html="renderMarkdown(item.props.content)"></div>
+                <div v-else-if="item.props.description" v-html="renderMarkdown(item.props.description)"></div>
+              </div>
+
+              <div class="tags" v-if="item.props.tags" style="margin-top: 12px;">
+                <el-tag v-for="tag in item.props.tags" :key="tag" size="default" effect="plain" style="margin-right: 6px;">
+                  {{ tag }}
+                </el-tag>
+              </div>
+
+              <div v-if="item.props.actions" class="a2ui-card-actions">
+                <el-button 
+                    v-for="(btn, bIdx) in item.props.actions"
+                    :key="bIdx"
+                    :type="bIdx === item.props.actions.length - 1 ? 'primary' : ''"
+                    size="default"
+                    @click="handleManualAction(btn.label, item.props.title)"
+                >
+                    {{ btn.label }}
+                </el-button>
+              </div>
+            </el-card>
+
+            <!-- 8. Button (Description 也支持 Markdown) -->
+            <div 
+              v-if="item.type === 'Button'" 
+              :style="buttonStyle"
+            >
+              <el-button 
+                v-if="item.props.description"
+                :type="resolveBtnType(item.props)"
+                @click="handleAction(item)" 
+                :disabled="isSubmitted"
+                size="large"
+                style="height: auto; padding: 12px 20px; text-align: left; display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.4; width: 100%;"
+              >
+                <span style="font-weight: 600; font-size: 15px;">{{ item.props.label }}</span>
+                <span style="font-size: 12px; opacity: 0.8; font-weight: normal; margin-top: 4px;" v-html="renderMarkdown(item.props.description)"></span>
+              </el-button>
+
+              <el-button 
+                v-else
+                :type="resolveBtnType(item.props)" 
+                @click="handleAction(item)" 
+                :disabled="isSubmitted"
+                size="large" 
+                style="width: 100%; font-weight: 500;"
+              >
+                {{ item.props.label }}
+              </el-button>
+            </div>
+
+          </template>
+        </div>
+      </el-form>
+    </div>
+  `,
+  props: {
+    config: { type: Object, required: true, default: () => ({}) }
+  },
+  data() {
+    return { formData: {}, isSubmitted: false };
+  },
+  computed: {
+    uiConfig() {
+      if (Array.isArray(this.config)) return { children: this.config };
+      return this.config || {};
+    },
+    isSelfContained() {
+      return ['Card', 'Group', 'List', 'Divider'].includes(this.uiConfig.type);
+    },
+    normalizedChildren() {
+        const conf = this.uiConfig;
+        if (conf.children && Array.isArray(conf.children)) {
+            return conf.children;
+        }
+        if (conf.type) {
+            return [conf];
+        }
+        return [];
+    },
+    containerClass() {
+      if (this.uiConfig.type === 'Group') {
+        return 'a2ui-group-container';
+      }
+      return 'a2ui-form-container';
+    },
+    buttonStyle() {
+      if (this.uiConfig.type === 'Group') {
+        return { margin: '0 5px', flex: '1' };
+      }
+      return { textAlign: 'right', marginTop: '10px', width: '100%' };
+    }
+  },
+  created() {
+    this.normalizedChildren.forEach((child, idx) => {
+      if (['Input', 'Select'].includes(child.type)) {
+         const key = (child.props && child.props.key) || ('input_' + idx);
+         if (this.formData[key] === undefined) {
+            this.formData[key] = '';
+         }
+      }
+    });
+  },
+  methods: {
+    // 渲染 Markdown 的核心方法
+    renderMarkdown(text) {
+        if (!text) return '';
+        // 尝试使用全局定义的 md 对象
+        if (typeof md !== 'undefined' && md.render) {
+            // 使用 renderInline 可以避免最外层包裹 <p> 标签，如果是短文本更合适
+            // 但对于包含列表的内容，必须用 render
+            if (text.includes('\n') || text.includes('- ')) {
+                return md.render(text);
+            }
+            return md.renderInline(text);
+        }
+        // 兜底：如果没有 md，简单的换行处理
+        return text.replace(/\n/g, '<br>');
+    },
+    isObj(val) {
+      return val && typeof val === 'object';
+    },
+    resolveBtnType(props) {
+        if (props.variant === 'primary') return 'primary';
+        if (props.variant === 'danger') return 'danger';
+        return props.type || 'default';
+    },
+    handleAction(item, extraValue) {
+      this.isSubmitted = true;
+      let payload = item.props.label;
+      
+      if (item.props.action === 'search' && extraValue) {
+          payload = `搜索：${extraValue}`;
+      }
+      else if (item.props.action === 'submit') {
+        let details = [];
+        for (const [key, val] of Object.entries(this.formData)) {
+             const field = this.normalizedChildren.find(c => c.props && c.props.key === key);
+             const label = field ? field.props.label : key;
+             
+             let displayVal = val;
+             if (field && field.type === 'Select' && Array.isArray(field.props.options)) {
+                 const selectedOpt = field.props.options.find(o => 
+                    (this.isObj(o) ? o.value : o) === val
+                 );
+                 if (selectedOpt && this.isObj(selectedOpt)) {
+                     displayVal = `${selectedOpt.label} (${val})`; 
+                 }
+             }
+
+             details.push(`${label}：${displayVal}`);
+        }
+        if (details.length > 0) payload = `表单提交：\n${details.join('\n')}`;
+      } 
+      else if (item.props.data) {
+          payload = `选择操作：${item.props.label} (ID:${item.props.data})`;
+      }
+      
+      this.$emit('action', payload);
+    },
+    handleManualAction(actionName, title) {
+        this.$emit('action', `选择了：${title} - ${actionName}`);
+    },
+    relayAction(payload) {
+        this.$emit('action', payload);
+    }
+  }
+};
+
+// ==========================================
+// 2. 创建 Vue 应用
+// ==========================================
 const app = Vue.createApp({
   data() {
     return vue_data
@@ -236,7 +548,7 @@ const app = Vue.createApp({
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: 'loose',
-          theme: newVal === 'dark' || newVal === 'midnight' || newVal === 'neon' ? 'dark' : 'default'
+          theme : ['dark','midnight','neon'].includes(newVal) ? 'dark' : 'default'
         });
 
         // 完整的主题色映射
@@ -249,6 +561,7 @@ const app = Vue.createApp({
           marshmallow: '#f5a5c3',  // Marshmallow 粉色
           ink: '#2c3e50',        // 墨水蓝
           party: '#ed7d00',        // 派对黄
+          rainbow: '#845ec2',        // 彩虹
         };
 
         // 获取当前主题色
@@ -652,7 +965,9 @@ const app = Vue.createApp({
       );
     },
   },
-  methods: vue_methods
+  methods: {
+    ...vue_methods,
+  }
 });
 
 function showNotification(message, type = 'success') {
@@ -698,11 +1013,15 @@ function removeNonAsciiTags(html) {
 // 修改图标注册方式（完整示例）
 app.use(ElementPlus);
 
+// ==========================================
+// ★ 修改点：注册 A2UI 组件
+// ==========================================
+app.component('a2-u-i-renderer', A2UIRendererComponent);
+
 // 正确注册所有图标（一次性循环注册）
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
-
 
 // 挂载应用
 app.mount('#app');
