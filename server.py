@@ -47,7 +47,7 @@ import aiofiles
 import argparse
 from py.dify_openai_async import DifyOpenAIAsync
 
-from py.get_setting import EXT_DIR, load_covs, load_settings, save_covs,save_settings,base_path,configure_host_port,UPLOAD_FILES_DIR,AGENT_DIR,MEMORY_CACHE_DIR,KB_DIR,DEFAULT_VRM_DIR,USER_DATA_DIR,LOG_DIR,TOOL_TEMP_DIR
+from py.get_setting import EXT_DIR, load_covs, load_settings, save_covs,save_settings,clean_temp_files_task,base_path,configure_host_port,UPLOAD_FILES_DIR,AGENT_DIR,MEMORY_CACHE_DIR,KB_DIR,DEFAULT_VRM_DIR,USER_DATA_DIR,LOG_DIR,TOOL_TEMP_DIR
 from py.llm_tool import get_image_base64,get_image_media_type
 timetamp = time.time()
 log_path = os.path.join(LOG_DIR, f"backend_{timetamp}.log")
@@ -177,7 +177,7 @@ async def lifespan(app: FastAPI):
     # 1. 准备所有独立的初始化任务
     from py.get_setting import init_db, init_covs_db
     from tzlocal import get_localzone
-    
+    asyncio.create_task(clean_temp_files_task())
     # 将所有不依赖 Settings 的任务并行化
     # 比如：数据库初始化、加载本地化文件、获取时区
     init_db_task = init_db()
@@ -5419,15 +5419,17 @@ async def get_system_voices():
             content={"error": f"无法获取音色列表: {str(e)}"}
         )
 
-from pydub import AudioSegment
-from imageio_ffmpeg import get_ffmpeg_exe   # ① 关键：拿到捆绑的 ffmpeg
 
-# 让 pydub 使用我们自带的 ffmpeg，而不是去系统 PATH 里找
-AudioSegment.converter = get_ffmpeg_exe()
 async def convert_to_opus_simple(audio_data):
     """使用pydub将音频转换为opus格式（适合飞书）"""
+    from pydub import AudioSegment
+    from imageio_ffmpeg import get_ffmpeg_exe   # ① 关键：拿到捆绑的 ffmpeg
+    # 设置 converter (利用 getattr 避免重复设置)
+    if not getattr(AudioSegment, 'converter_configured', False):
+        AudioSegment.converter = get_ffmpeg_exe()
+        AudioSegment.converter_configured = True
     try:
-        
+
         try:
             # ② 先尝试用 pydub 自动探测格式
             audio_io = io.BytesIO(audio_data)
