@@ -549,12 +549,7 @@ const A2UIRendererComponent = {
         if (!text) return '';
         // 尝试使用全局定义的 md 对象
         if (typeof md !== 'undefined' && md.render) {
-            // 使用 renderInline 可以避免最外层包裹 <p> 标签，如果是短文本更合适
-            // 但对于包含列表的内容，必须用 render
-            if (text.includes('\n') || text.includes('- ')) {
-                return md.render(text);
-            }
-            return md.renderInline(text);
+            return md.render(text);
         }
         // 兜底：如果没有 md，简单的换行处理
         return text.replace(/\n/g, '<br>');
