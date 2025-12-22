@@ -363,6 +363,41 @@ const A2UIRendererComponent = {
               </div>
             </div>
 
+            <!-- 18. 朗读文本块 -->
+            <div 
+              v-if="item.type === 'TTSBlock'" 
+              class="a2ui-tts-block"
+              @click="handleTTS(item.props.content, item.props.voice)"
+              title="点击播放语音"
+            >
+              <div class="tts-icon">
+                <i class="fa-solid fa-volume-high"></i>
+              </div>
+              <div class="tts-body">
+                <div class="tts-label" v-if="item.props.label">{{ item.props.label }}</div>
+                <div class="tts-content markdown-body" v-html="renderMarkdown(item.props.content)"></div>
+              </div>
+              <div class="tts-action-hint">
+                <i class="fa-solid fa-play"></i>
+              </div>
+            </div>
+
+            <div 
+              v-if="item.type === 'Audio'" 
+              class="a2ui-audio-player"
+              style="margin-bottom: 15px; width: 100%;"
+            >
+              <div v-if="item.props.title" style="font-weight: bold; margin-bottom: 5px; font-size: 14px;">
+                {{ item.props.title }}
+              </div>
+              <audio controls style="width: 100%; height: 40px;" :src="item.props.src">
+                您的浏览器不支持音频元素。
+              </audio>
+              <div v-if="item.props.description" style="font-size: 12px; color: #909399; margin-top: 4px;">
+                {{ item.props.description }}
+              </div>
+            </div>
+
           </template>
         </div>
       </el-form>
@@ -433,6 +468,16 @@ const A2UIRendererComponent = {
     });
   },
   methods: {
+    handleTTS(text, voice) {
+      // 尝试调用根组件的 ClickToListen 方法
+      if (this.$root && typeof this.$root.ClickToListen === 'function') {
+        this.$root.ClickToListen(text, voice);
+      } else {
+        console.warn('A2UI: 根实例上未找到 ClickToListen 方法。');
+        this.$emit('action', `TTS播放请求: ${text}`); // 降级处理
+      }
+    },
+
     async copyToClipboard(text, event) {
       if (!text) return;
       try {

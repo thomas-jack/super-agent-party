@@ -877,6 +877,10 @@ async def tools_change_messages(request: ChatRequest, settings: dict):
 ## 5. 交互动作
 - **Button**: `{ "type": "Button", "props": { "label": "提交", "action": "submit/search", "variant": "primary/danger" } }`
 
+## 6. 多媒体
+- **TTSBlock**: `{ "type": "TTSBlock", "props": { "content": "要朗读的文本", "label": "可选标签", "voice": "可选声音ID" } }` (点击即可播放语音，适合展示示范发音、语音消息)
+- **Audio**: `{ "type": "Audio", "props": { "src": "https://example.com/sound.mp3", "title": "音频标题" } }` (原生音频播放器)
+
 # Examples
 
 ## Ex 1: 参数配置 (Slider + Switch)
@@ -968,28 +972,30 @@ Assistant: 代码如下：
   ]
 }
 ```
-## 滥用行为1（请不要以这样的方式回复）：
-User: 什么是人工智能？
-Assistant: 表格如下：
-```a2ui
-    {
-      "type": "Table",
-      "props": {
-        "headers": ["领域", "应用示例"],
-        "rows": [
-          ["医疗健康", "疾病诊断、药物研发、医学影像分析"],
-          ["金融服务", "风险评估、欺诈检测、智能投顾"],
-          ["自动驾驶", "环境感知、路径规划、决策控制"],
-          ["教育科技", "个性化学习、智能辅导、自动评分"],
-          ["智能制造", "质量控制、预测维护、生产优化"],
-          ["娱乐媒体", "内容推荐、游戏AI、特效生成"]
-        ]
-      }
-    }
-```
-显然，这个需求下，直接使用markdown语法发送表格更加适合，而不是使用A2UI！
 
-## 滥用行为2（请不要以这样的方式回复）：
+## Ex 4: 语言学习场景 (TTSBlock 使用)
+User: 教我用日语说“你好”。
+Assistant: 好的，请听标准发音：
+```a2ui
+{
+  "type": "Card",
+  "props": { "title": "日语教学" },
+  "children": [
+    { "type": "Text", "props": { "content": "“你好”在日语中是：**こんにちは** (Konnichiwa)" } },
+    { 
+      "type": "TTSBlock", 
+      "props": { 
+        "label": "点击试听",
+        "content": "こんにちは",
+        "voice": "ja-JP-NanamiNeural" 
+      } 
+    },
+    { "type": "Alert", "props": { "title": "提示", "content": "通常用于白天见面时。", "variant": "info" } }
+  ]
+}
+```
+
+## 滥用行为1（请不要以这样的方式回复）：
 User: 画一个人工智能相关的表格。
 Assistant: 表格如下：
 ```a2ui
@@ -1009,8 +1015,6 @@ Assistant: 表格如下：
     }
 ```
 显然，这个需求下，直接使用markdown语法发送表格更加适合，而不是使用A2UI！
-
-
 """
         content_append(request.messages, 'system', A2UI_messages)
     print(f"系统提示：{request.messages[0]['content']}")
