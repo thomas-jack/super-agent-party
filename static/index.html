@@ -11296,6 +11296,34 @@ if ('serviceWorker' in navigator) {
                     :stroke-width="10"
                   />
                 </el-card>
+                <el-divider></el-divider>
+                <div class="plugin-header">
+                  <h3>{{t('availableExtensions')}}</h3>
+                  <div class="plugin-button-group">
+                    <el-button 
+                      @click="openAddExtensionDialog" 
+                      type="primary">
+                      {{t('addNewExtension')}}
+                    </el-button>
+                    <el-button 
+                      @click="openExtfile" 
+                      type="primary">
+                      {{t('openExtfile')}}
+                    </el-button>
+                    <el-button 
+                      @click="openRepository('https://github.com/super-agent-party/super-agent-party.github.io')" 
+                      type="primary">
+                      {{t('addYourExtensions')}}
+                    </el-button>
+                    <el-button 
+                      @click="handleRefreshClick" 
+                      type="primary"
+                      :loading="refreshing">
+                      {{refreshButtonText}}
+                    </el-button>
+                  </div>
+                </div>
+
                 <!-- 磁贴网格 -->
                 <div class="provider-grid">
                   <!-- 已有智能体 -->

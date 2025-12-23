@@ -197,6 +197,8 @@ def _run_bg_install(repo_url: str, ext_id: str, backup_url: str = ""):
     if backup_url and backup_url.strip():
         urls.append(backup_url.strip().rstrip("/"))
 
+    print(f"[{ext_id}] 准备安装，待尝试地址列表: {urls}")
+
     if not urls:
         robust_rmtree(temp_dir) # 记得清理
         raise RuntimeError("没有任何可用仓库地址")
@@ -276,6 +278,7 @@ class RemotePluginItem(BaseModel):
     version: str
     category: str = "Unknown"
     repository: str
+    backupRepository: Optional[str] = ""
     installed: bool = False
 
 class RemotePluginList(BaseModel):
@@ -319,20 +322,22 @@ async def remote_plugin_list():
         installed_repos = set()
 
     def _with_status(p: dict):
-        repo = p.get("repository", "").strip().rstrip("/").lower()
-        parse = urlparse(p.get("repository", ""))
-        path_parts = parse.path.strip("/").split("/")
-        ext_id = f"{path_parts[0]}_{path_parts[1]}" if len(path_parts) >= 2 else p.get("id", "")
-        return RemotePluginItem(
-            id=ext_id,
-            name=p.get("name", "未命名"),
-            description=p.get("description", ""),
-            author=p.get("author", "未知"),
-            version=p.get("version", "1.0.0"),
-            category=p.get("category", "Unknown"),
-            repository=p.get("repository", ""),
-            installed=repo in installed_repos,
-        )
+            repo = p.get("repository", "").strip().rstrip("/").lower()
+            parse = urlparse(p.get("repository", ""))
+            path_parts = parse.path.strip("/").split("/")
+            ext_id = f"{path_parts[0]}_{path_parts[1]}" if len(path_parts) >= 2 else p.get("id", "")
+            
+            return RemotePluginItem(
+                id=ext_id,
+                name=p.get("name", "未命名"),
+                description=p.get("description", ""),
+                author=p.get("author", "未知"),
+                version=p.get("version", "1.0.0"),
+                category=p.get("category", "Unknown"),
+                repository=p.get("repository", ""),
+                backupRepository=p.get("backupRepository", ""), 
+                installed=repo in installed_repos,
+            )
 
     return RemotePluginList(plugins=[_with_status(p) for p in remote])
 
