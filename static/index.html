@@ -11457,7 +11457,7 @@ if ('serviceWorker' in navigator) {
                     </div>
                   </div>
                   
-                  <div v-loading="installLoading" class="plugins-container">
+                  <div class="plugins-container">
                     <div v-if="remotePlugins.length === 0" class="empty-plugins">
                       <el-empty :description="t('noExtensionsFound')"></el-empty>
                     </div>
@@ -11487,6 +11487,7 @@ if ('serviceWorker' in navigator) {
                             {{ t('update') }}
                           </el-button>
                           <el-button
+                            :loading="installLoading&&!plugin.installed"
                             :type="plugin.installed ? 'danger' : 'primary'"
                             @click="togglePlugin(plugin)"
                           >

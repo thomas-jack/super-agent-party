@@ -179,52 +179,89 @@ def _do_single_install(url: str, temp_dir: Path, target: Path):
         make_tree_writable(clone_dir)
         shutil.move(str(clone_dir), str(target))
 
-# 修改函数签名，接收 backup_url
+def check_github_latency() -> bool:
+    """
+    快速检测 GitHub 连通性
+    返回 True 表示连接顺畅，False 表示连接超时或失败
+    """
+    try:
+        # 设置 3 秒超时，只请求 HEAD，不下载内容，速度快
+        with httpx.Client(timeout=3.0) as client:
+            client.head("https://github.com", follow_redirects=True)
+        return True
+    except Exception:
+        return False
+
+install_tasks = {}
+
+# 2. 修改后台任务函数，使其能更新状态
 def _run_bg_install(repo_url: str, ext_id: str, backup_url: str = ""):
-    """后台安装任务，支持主备仓库回退"""
-    target = Path(EXT_DIR) / ext_id
-    target.parent.mkdir(parents=True, exist_ok=True)
-    temp_dir = Path(tempfile.mkdtemp())
-
-    # --- 删除原来的读取 package.json 的逻辑 ---
-    # 原来的逻辑在安装时是无效的，因为 target 目录此时还不存在或为空
+    # 初始化状态
+    install_tasks[ext_id] = {"status": "installing", "detail": "正在初始化..."}
     
-    urls: List[str] = []
-    if repo_url.strip():
-        urls.append(repo_url.strip().rstrip("/"))
-    
-    # 直接使用传入的参数
-    if backup_url and backup_url.strip():
-        urls.append(backup_url.strip().rstrip("/"))
+    try:
+        target = Path(EXT_DIR) / ext_id
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp_dir = Path(tempfile.mkdtemp())
 
-    print(f"[{ext_id}] 准备安装，待尝试地址列表: {urls}")
+        # ... (保留原有的清洗地址逻辑) ...
+        main_repo = repo_url.strip().rstrip("/") if repo_url else ""
+        backup_repo = backup_url.strip().rstrip("/") if backup_url else ""
+        
+        urls: List[str] = []
+        
+        # 更新状态：正在检测网络
+        install_tasks[ext_id] = {"status": "installing", "detail": "正在检测网络连接..."}
 
-    if not urls:
-        robust_rmtree(temp_dir) # 记得清理
-        raise RuntimeError("没有任何可用仓库地址")
+        if main_repo and backup_repo:
+            if check_github_latency():
+                urls = [main_repo, backup_repo]
+            else:
+                urls = [backup_repo, main_repo]
+        elif main_repo:
+            urls = [main_repo]
+        elif backup_repo:
+            urls = [backup_repo]
 
-    print(f"尝试安装 {ext_id}，可用地址: {urls}") # 方便调试
-
-    # 顺序尝试安装
-    last_err: Exception | None = None
-    for url in urls:
-        try:
-            print(f"正在尝试: {url}")
-            _do_single_install(url, temp_dir, target)
-            # 成功则清理临时目录并返回
+        if not urls:
             robust_rmtree(temp_dir)
-            print(f"安装成功: {url}")
-            return
-        except Exception as e:
-            print(f"安装失败 {url}: {e}")
-            last_err = e
-            continue
+            raise RuntimeError("没有任何可用仓库地址")
 
-    # 全部失败，清理并抛出异常
-    if target.exists():
-        robust_rmtree(target)
-    robust_rmtree(temp_dir)
-    raise RuntimeError(f"主/备仓库均安装失败：{last_err}")
+        last_err: Exception | None = None
+        for i, url in enumerate(urls):
+            try:
+                # 更新状态：正在下载
+                install_tasks[ext_id] = {
+                    "status": "installing", 
+                    "detail": f"正在尝试源 {i+1}/{len(urls)}: {url}..."
+                }
+                
+                _do_single_install(url, temp_dir, target)
+                robust_rmtree(temp_dir)
+                
+                # 成功！
+                install_tasks[ext_id] = {"status": "success", "detail": "安装成功"}
+                return
+            except Exception as e:
+                last_err = e
+                continue
+
+        if target.exists():
+            robust_rmtree(target)
+        robust_rmtree(temp_dir)
+        raise RuntimeError(f"所有仓库地址均安装失败：{last_err}")
+
+    except Exception as e:
+        # 失败！记录错误信息
+        install_tasks[ext_id] = {"status": "error", "detail": str(e)}
+
+# 3. 新增查询状态的接口
+@router.get("/task-status/{ext_id}")
+async def get_task_status(ext_id: str):
+    status = install_tasks.get(ext_id)
+    if not status:
+        return {"status": "unknown", "detail": "无此任务"}
+    return status
 
 @router.post("/install-from-github")
 async def install_from_github(

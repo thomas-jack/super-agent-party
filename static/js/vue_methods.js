@@ -10016,11 +10016,41 @@ clearSegments() {
       this.fetchRemotePlugins();
     },
 
+    async pollInstallStatus(extId, onSuccess, onError) {
+      const poll = async () => {
+        try {
+          const res = await fetch(`/api/extensions/task-status/${extId}`);
+          const data = await res.json();
+
+          if (data.status === 'success') {
+            // 安装成功
+            onSuccess(data.detail);
+          } else if (data.status === 'error') {
+            // 安装失败
+            onError(data.detail);
+          } else if (data.status === 'installing') {
+             // 仍在安装中，继续轮询 (这里可以顺便更新界面提示，如果你有对应UI的话)
+             // 例如：console.log(data.detail); 
+             setTimeout(poll, 1000); // 1秒后再次检查
+          } else {
+             // 未知状态，可能是重启了或者ID错了
+             onError("任务状态丢失");
+          }
+        } catch (e) {
+          onError("网络请求错误");
+        }
+      };
+      // 开始第一次轮询
+      poll();
+    },
+
     // 真正「安装」按钮触发
     async addExtension() {
       const url = this.newExtensionUrl.trim();
       if (!url) return showNotification('请输入 GitHub 地址', 'error');
-      this.installLoading = true;
+      
+      this.installLoading = true; // 开启 Loading 遮罩
+      
       try {
         const res = await fetch('/api/extensions/install-from-github', {
           method: 'POST',
@@ -10030,19 +10060,38 @@ clearSegments() {
             backupUrl: ""  
           }),
         });
+        
         if (res.status === 409) throw new Error(this.t('extensionExists'));
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.detail || this.t('deleteFailed'));
         }
-        showNotification(this.t('waitExtensionInstall'));
-        this.showExtensionForm = false;
-        // 3 秒后自动刷新
-        setTimeout(() => this.scanExtensions(), 3000);
+
+        const resData = await res.json();
+        const extId = resData.ext_id;
+
+        // --- 核心修改：开始轮询 ---
+        showNotification('正在后台下载，请稍候...', 'info');
+        
+        this.pollInstallStatus(
+          extId,
+          (msg) => {
+            // 成功回调
+            this.installLoading = false;
+            showNotification(msg || '安装成功！', 'success');
+            this.showExtensionForm = false; // 关闭弹窗
+            this.scanExtensions(); // 立即刷新列表
+          },
+          (errMsg) => {
+            // 失败回调
+            this.installLoading = false;
+            showNotification(`安装失败: ${errMsg}`, 'error');
+          }
+        );
+
       } catch (e) {
-        showNotification(e.message, 'error');
-      } finally {
         this.installLoading = false;
+        showNotification(e.message, 'error');
       }
     },
     // 打开文件选择器
@@ -10094,34 +10143,60 @@ clearSegments() {
         
       }
     },
-  async togglePlugin(plugin) {
+async togglePlugin(plugin) {
     if (plugin.installed) {
-      // 卸载
+      // 卸载逻辑保持不变...
       await this.removeExtension(plugin);
       plugin.installed = false;
     } else {
-      // 安装
-      this.installLoading = true;
+      // --- 安装逻辑 ---
+      
+      // 1. 设置局部 loading 状态 (如果你的 plugin 对象支持)
+      // 如果没有局部 loading，就用全局 this.installLoading = true
+      plugin.installing = true
+      this.installLoading = true; 
+
       try {
         const res = await fetch('/api/extensions/install-from-github', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // 修改这里：增加 backupUrl 字段
           body: JSON.stringify({ 
             url: plugin.repository,
             backupUrl: plugin.backupRepository || "" 
           }),
         });
+
         if (res.status === 409) throw new Error('插件已存在');
-        if (!res.ok) throw new Error('安装失败');
-        showNotification(this.t('waitExtensionInstall'), 'success');
-        plugin.installed = true;
-        // 3 秒后自动刷新
-        setTimeout(() => this.scanExtensions(), 3000);
+        if (!res.ok) throw new Error('请求失败');
+        
+        const resData = await res.json();
+        const extId = resData.ext_id;
+
+        showNotification('已开始下载，请耐心等待...', 'info');
+
+        // --- 核心修改：开始轮询 ---
+        this.pollInstallStatus(
+          extId,
+          (msg) => {
+            // 成功
+            this.installLoading = false;
+            if (plugin) plugin.installing = false;
+            plugin.installed = true; // 更新前端状态
+            showNotification('安装成功！', 'success');
+            this.scanExtensions(); // 刷新完整列表以确保数据一致
+          },
+          (errMsg) => {
+            // 失败
+            this.installLoading = false;
+            if (plugin) plugin.installing = false;
+            showNotification(`安装失败: ${errMsg}`, 'error');
+          }
+        );
+
       } catch (e) {
-        showNotification(e.message, 'error');
-      } finally {
         this.installLoading = false;
+        if (plugin) plugin.installing = false;
+        showNotification(e.message, 'error');
       }
     }
   },
