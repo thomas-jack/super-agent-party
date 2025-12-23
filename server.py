@@ -840,205 +840,78 @@ async def tools_change_messages(request: ChatRequest, settings: dict):
         A2UI_messages = """
 除了使用自然语言回答用户问题外，你还拥有一个特殊能力：**渲染 A2UI 界面**。
 
-# Capability: A2UI
-当用户的请求涉及到**数据收集、参数配置、多项选择、富文本展示、表单提交**或**代码展示**时，请不要只用文字描述，而是直接生成 A2UI 代码来呈现界面。
+# Capability: A2UI (Flat Protocol)
+当用户的请求涉及到**数据收集、多项选择、富文本展示、表单提交**时，请直接生成 A2UI 代码。
 
-# Formatting Rules (重要规则)
-1. 将 A2UI JSON 包裹在 ```a2ui ... ``` 代码块中。
-2. **【绝对禁止】嵌套 Markdown 代码块**：在 JSON 字符串内部（例如 Text 或 Card 的 content 属性中），**绝对不要**使用 Markdown 的代码块语法（即不要出现 ``` 符号）。这会导致解析器崩溃。
-3. **如果需要展示代码**：必须使用专门的 `Code` 组件。
+# Formatting Rules (核心规范)
+1. **格式类型**：输出必须是一个 **JSON 数组 (Array)**，包含所有组件的扁平列表。
+2. **扁平化结构**：**严禁使用物理嵌套**（即组件内部不能直接包含 `children: [{...}]` 对象）。
+3. **关系构建**：必须通过 `id` 和 `parentId` 来建立组件的父子关系。
+   - 每个组件必须有唯一的 `id` (字符串)。
+   - 子组件必须包含 `parentId` 字段，指向父容器的 `id`。
+   - 根组件不需要 `parentId`。
+4. **代码块包裹**：将 JSON 包裹在 ```a2ui ... ``` 代码块中。
 
-# Component Reference (组件参考)
-请严格遵守 props 结构。
+# Component Catalog (组件目录)
 
-## 1. 基础展示
-- **Text**: `{ "type": "Text", "props": { "content": "Markdown文本(也就是普通文本，支持加粗等，但不支持代码块)" } }` (★ 请勿滥用，如无必要，请直接使用markdown文字即可，而不是放到A2UI JSON中)
-- **Code**: `{ "type": "Code", "props": { "content": "print('hello')", "language": "python" } }` (★ 展示代码专用，替代MD代码块)
-- **Table**: `{ "type": "Table", "props": { "headers": ["列1", "列2"], "rows": [ ["a1", "b1"], ["a2", "b2"] ] } }` (★ 请勿滥用，如果你想要画一个表格，请直接使用markdown表格语法即可，而不是放到A2UI JSON中)
-- **Alert**: `{ "type": "Alert", "props": { "title": "标题", "content": "内容", "variant": "success/warning/info/error" } }`
-- **Divider**: `{ "type": "Divider" }`
+## 1. 容器 (Containers)
+- **Group**: `{ "id": "...", "type": "Group", "parentId": "...", "props": { "title": "标题" } }`
+- **Card**: `{ "id": "...", "type": "Card", "parentId": "...", "props": { "title": "标题", "content": "MD内容" } }`
 
-## 2. 布局容器
-- **Group**: `{ "type": "Group", "title": "可选标题", "children": [...] }` (水平排列)
-- **Card**: `{ "type": "Card", "props": { "title": "标题", "content": "MD内容" }, "children": [...] }`
+## 2. 基础展示 (Display)
+- **Text**: `{ "id": "...", "type": "Text", "parentId": "...", "props": { "content": "Markdown文本" } }`
+- **Code**: `{ "id": "...", "type": "Code", "parentId": "...", "props": { "content": "code...", "language": "python" } }`
+- **Alert**: `{ "id": "...", "type": "Alert", "parentId": "...", "props": { "title": "标题", "content": "内容", "variant": "info/success/warning/error" } }`
+- **Divider**: `{ "id": "...", "type": "Divider", "parentId": "..." }`
 
-## 3. 表单输入 (必须包含 key)
-- **Input**: `{ "type": "Input", "props": { "label": "标签", "key": "field_name", "placeholder": "..." } }`
-- **Slider**: `{ "type": "Slider", "props": { "label": "标签", "key": "field_name", "min": 0, "max": 100, "step": 1, "unit": "单位" } }`
-- **Switch**: `{ "type": "Switch", "props": { "label": "标签", "key": "field_name" } }`
-- **Rate**: `{ "type": "Rate", "props": { "label": "评价", "key": "rating" } }`
-- **DatePicker**: `{ "type": "DatePicker", "props": { "label": "日期", "key": "date", "subtype": "date/datetime/year" } }`
+## 3. 表单输入 (Inputs)
+*所有表单组件必须包含 `key` 属性。*
+- **Input**: `{ "id": "...", "type": "Input", "parentId": "...", "props": { "label": "标签", "key": "field_name", "placeholder": "..." } }`
+- **Slider**: `{ "id": "...", "type": "Slider", "parentId": "...", "props": { "label": "标签", "key": "field_name", "min": 0, "max": 100 } }`
+- **Switch**: `{ "id": "...", "type": "Switch", "parentId": "...", "props": { "label": "标签", "key": "field_name" } }`
+- **Select**: `{ "id": "...", "type": "Select", "parentId": "...", "props": { "label": "标签", "key": "field_name", "options": ["A", "B"] } }`
+- **Checkbox**: `{ "id": "...", "type": "Checkbox", "parentId": "...", "props": { "label": "标签", "key": "field_name", "options": ["A", "B"] } }`
+- **Radio**: `{ "id": "...", "type": "Radio", "parentId": "...", "props": { "label": "标签", "key": "field_name", "options": ["A", "B"] } }`
 
-## 4. 选项选择 (必须包含 key)
-- **Select**: `{ "type": "Select", "props": { "label": "标签", "key": "field_name", "options": ["A", "B"] } }` (下拉菜单)
-- **Radio**: `{ "type": "Radio", "props": { "label": "标签", "key": "field_name", "options": [{"label":"男","value":"m"}, {"label":"女","value":"f"}] } }`
-- **Checkbox**: `{ "type": "Checkbox", "props": { "label": "标签", "key": "field_name", "options": ["篮球", "足球"] } }`
+## 4. 交互与多媒体 (Actions & Media)
+- **Button**: `{ "id": "...", "type": "Button", "parentId": "...", "props": { "label": "按钮文字", "action": "submit/clear", "variant": "primary/danger" } }`
+- **TTSBlock**: `{ "id": "...", "type": "TTSBlock", "parentId": "...", "props": { "content": "朗读文本", "voice": "..." } }`
 
-## 5. 交互动作
-- **Button**: `{ "type": "Button", "props": { "label": "按钮文字", "action": "submit/search/clear", "variant": "primary/danger/default" } }`
-  - `action="submit"`: 提交表单数据给助手。
-  - `action="search"`: 搜索（配合 Input 使用）。
-  - `action="clear"`: **清空/重置当前表单**（不会发送消息，仅在本地清除内容）。
+# Examples (扁平化示例)
 
-## 6. 多媒体
-- **TTSBlock**: `{ "type": "TTSBlock", "props": { "content": "要朗读的文本", "label": "可选标签", "voice": "可选声音ID" } }` (点击即可播放语音，适合展示示范发音、语音消息)
-- **Audio**: `{ "type": "Audio", "props": { "src": "https://example.com/sound.mp3", "title": "音频标题" } }` (原生音频播放器)
-
-# Examples
-
-## Ex 1: 参数配置 (Slider + Switch)
-User: 帮我把生成温度设为 0.8，并开启流式输出。
-Assistant: 好的，已为您准备好配置面板：
+## Ex 1: 参数配置 (Card > Slider + Button)
+User: 设置温度为0.7。
+Assistant:
 ```a2ui
-{
-  "type": "Card",
-  "props": { "title": "模型配置" },
-  "children": [
-    { "type": "Slider", "props": { "label": "Temperature (随机性)", "key": "temp", "min": 0, "max": 2, "step": 0.1 } },
-    { "type": "Switch", "props": { "label": "流式输出 (Stream)", "key": "stream", "defaultValue": true } },
-    { "type": "Button", "props": { "label": "保存配置", "action": "submit" } }
-  ]
-}
+[
+  { "id": "card-root", "type": "Card", "props": { "title": "模型参数" } },
+  { "id": "sld-temp", "type": "Slider", "parentId": "card-root", "props": { "label": "Temperature", "key": "temp", "min": 0, "max": 2, "defaultValue": 0.7 } },
+  { "id": "btn-save", "type": "Button", "parentId": "card-root", "props": { "label": "保存设置", "action": "submit", "variant": "primary" } }
+]
 ```
 
-## Ex 2: 问卷调查 (Radio + Checkbox + Rate)
-User: 我想做一个满意度调查。
-Assistant: 没问题，这是一个调查问卷模板：
+## Ex 2: 调查问卷 (Group 布局)
+User: 调查一下用户的喜好。
+Assistant:
 ```a2ui
-{
-  "type": "Form",
-  "children": [
-    { "type": "Alert", "props": { "title": "用户反馈", "content": "感谢您的参与，这对我们很重要。", "variant": "info" } },
-    { "type": "Radio", "props": { "label": "您的性别", "key": "gender", "options": ["男", "女", "保密"] } },
-    { "type": "Checkbox", "props": { "label": "您感兴趣的话题", "key": "interests", "options": ["科技", "生活", "娱乐"] } },
-    { "type": "Rate", "props": { "label": "总体评分", "key": "score" } },
-    { "type": "Input", "props": { "label": "其他建议", "key": "comment" } },
-    { "type": "Button", "props": { "label": "提交反馈", "action": "submit", "variant": "primary" } }
-  ]
-}
+[
+  { "id": "main-group", "type": "Group", "props": { "title": "用户调查" } },
+  { "id": "alert-info", "type": "Alert", "parentId": "main-group", "props": { "content": "请填写真实信息。", "variant": "info" } },
+  { "id": "input-name", "type": "Input", "parentId": "main-group", "props": { "label": "姓名", "key": "username" } },
+  { "id": "radio-gender", "type": "Radio", "parentId": "main-group", "props": { "label": "性别", "key": "gender", "options": ["男", "女"] } },
+  { "id": "btn-submit", "type": "Button", "parentId": "main-group", "props": { "label": "提交", "action": "submit" } }
+]
 ```
 
-## Ex 3: 需要在交互式界面中显示代码（不在A2UI内部显示代码，直接使用markdown代码块即可！）
-User: 模拟一个linux终端。
-Assistant: 代码如下：
+## Ex 3: 简单列表 (无容器)
+User: 显示几个选项。
+Assistant:
 ```a2ui
-{
-  "type": "Card",
-  "props": {
-    "title": "Linux 终端模拟器"
-  },
-  "children": [
-    {
-      "type": "Input",
-      "props": {
-        "label": "输入命令",
-        "key": "command",
-        "placeholder": "例如：ls, pwd, whoami, date, echo 'Hello' 等"
-      }
-    },
-    {
-      "type": "Group",
-      "children": [
-        {
-          "type": "Button",
-          "props": {
-            "label": "执行命令",
-            "action": "submit",
-            "variant": "primary"
-          }
-        },
-        {
-          "type": "Button",
-          "props": {
-            "label": "清空输出",
-            "action": "search"
-          }
-        }
-      ]
-    },
-    {
-      "type": "Divider"
-    },
-    {
-      "type": "Text",
-      "props": {
-        "content": "**终端输出区域：**"
-      }
-    },
-    {
-      "type": "Code",
-      "props": {
-        "content": "user@linux-terminal:~$ 等待输入命令...",
-        "language": "bash"
-      }
-    }
-  ]
-}
+[
+  { "id": "chk-1", "type": "Checkbox", "props": { "label": "兴趣", "key": "hobbies", "options": ["阅读", "编程", "发呆"] } },
+  { "id": "btn-ok", "type": "Button", "props": { "label": "确定", "action": "submit" } }
+]
 ```
-
-## Ex 4: 语言学习场景 (TTSBlock 使用)
-User: 教我用日语说“你好”。
-Assistant: 好的，请听标准发音：
-```a2ui
-{
-  "type": "Card",
-  "props": { "title": "日语教学" },
-  "children": [
-    { "type": "Text", "props": { "content": "“你好”在日语中是：**こんにちは** (Konnichiwa)" } },
-    { 
-      "type": "TTSBlock", 
-      "props": { 
-        "label": "点击试听",
-        "content": "こんにちは",
-        "voice": "ja-JP-NanamiNeural" 
-      } 
-    },
-    { "type": "Alert", "props": { "title": "提示", "content": "通常用于白天见面时。", "variant": "info" } }
-  ]
-}
-```
-
-## Ex 5: 带重置功能的表单
-User: 我想写一篇博客，需要填标题和内容，但我可能想重写。
-Assistant: 
-```a2ui
-{
-  "type": "Card",
-  "props": { "title": "撰写新文章" },
-  "children": [
-    { "type": "Input", "props": { "label": "文章标题", "key": "title" } },
-    { "type": "Input", "props": { "label": "正文内容", "key": "content" } },
-    { 
-      "type": "Group", 
-      "children": [
-        { "type": "Button", "props": { "label": "清空重写", "action": "clear", "variant": "danger" } },
-        { "type": "Button", "props": { "label": "立即发布", "action": "submit", "variant": "primary" } }
-      ]
-    }
-  ]
-}
-```
-
-## 滥用行为1（请不要以这样的方式回复）：
-User: 画一个人工智能相关的表格。
-Assistant: 表格如下：
-```a2ui
-    {
-      "type": "Table",
-      "props": {
-        "headers": ["领域", "应用示例"],
-        "rows": [
-          ["医疗健康", "疾病诊断、药物研发、医学影像分析"],
-          ["金融服务", "风险评估、欺诈检测、智能投顾"],
-          ["自动驾驶", "环境感知、路径规划、决策控制"],
-          ["教育科技", "个性化学习、智能辅导、自动评分"],
-          ["智能制造", "质量控制、预测维护、生产优化"],
-          ["娱乐媒体", "内容推荐、游戏AI、特效生成"]
-        ]
-      }
-    }
-```
-显然，这个需求下，直接使用markdown语法发送表格更加适合，而不是使用A2UI！
 """
         content_append(request.messages, 'system', A2UI_messages)
     print(f"系统提示：{request.messages[0]['content']}")

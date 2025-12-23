@@ -405,7 +405,7 @@ const A2UIRendererComponent = {
   `,
   props: {
     config: { type: Object, required: true, default: () => ({}) },
-    sharedFormData: { type: Object, default: null } 
+    sharedFormData: { type: Object, default: null },
   },
   data() {
     return { internalFormData: {}, isSubmitted: false };
@@ -415,20 +415,65 @@ const A2UIRendererComponent = {
       return this.sharedFormData || this.internalFormData;
     },
     uiConfig() {
-      if (Array.isArray(this.config)) return { children: this.config };
+      // 1. 如果传入的是数组 (扁平列表)，我们先把它转成树，然后取根节点作为 children
+      if (Array.isArray(this.config)) {
+        // 如果数组元素包含 id/parentId，说明是 A2UI 扁平协议
+        const isFlatProtocol = this.config.some(item => item.id && item.parentId);
+        
+        if (isFlatProtocol || this.config.length > 0) {
+           const treeRoots = this.buildTreeFromFlatList(this.config);
+           return { type: '_ROOT_', children: treeRoots };
+        }
+        // 兼容旧版纯数组
+        return { children: this.config };
+      }
+      
+      // 2. 如果是对象 (递归调用时)，直接使用
       return this.config || {};
     },
     isSelfContained() {
-      return ['Card', 'Group', 'List', 'Divider'].includes(this.uiConfig.type);
+      const containerTypes = ['Card', 'Group', 'List', 'Divider'];
+      
+      // 1. 如果当前组件本身就是 Card/Group，那就不需要外层再包一个框
+      if (containerTypes.includes(this.uiConfig.type)) {
+        return true;
+      }
+
+      // 2. ★ 核心修复：如果是扁平化数据生成的 _ROOT_ 节点
+      if (this.uiConfig.type === '_ROOT_') {
+        const children = this.uiConfig.children || [];
+        // 如果根节点下面包含组件，且第一个组件就是 Card/Group
+        // 那么外层也不要包框，因为 Card 自己有框
+        if (children.length > 0 && containerTypes.includes(children[0].type)) {
+           return true;
+        }
+      }
+
+      return false;
     },
     normalizedChildren() {
         const conf = this.uiConfig;
-        if (conf.children && Array.isArray(conf.children)) {
+        
+        // 1. 特殊处理：经过 buildTreeFromFlatList 转换后的根节点
+        // 它的 type 是我们自定义的 '_ROOT_'，必须展开它的 children
+        if (conf.type === '_ROOT_') {
+            return conf.children || [];
+        }
+
+        // 2. 兼容处理：如果 conf 本身是一个无类型的包装对象（通常来自旧版纯数组输入）
+        // 只有当它没有 'type' 且有 'children' 时，才视为纯列表容器进行展开
+        if (!conf.type && conf.children && Array.isArray(conf.children)) {
             return conf.children;
         }
+
+        // 3. 核心修复：具体组件（Card, Input, Alert 等）
+        // 无论它们是否包含 children（即使有空数组 children: []），
+        // 我们都必须返回 [conf]，让 Template 能够渲染组件本身（<el-card>, <el-input> 等）。
+        // 组件内部的递归渲染（如 Card 的子内容）是由组件 Template 内部的 <a2-u-i-renderer> 再次触发的。
         if (conf.type) {
             return [conf];
         }
+        
         return [];
     },
     containerClass() {
@@ -468,6 +513,45 @@ const A2UIRendererComponent = {
     });
   },
   methods: {
+    buildTreeFromFlatList(flatList) {
+        if (!Array.isArray(flatList)) return [];
+
+        // 1. 深拷贝并建立 ID 映射
+        const map = {};
+        const roots = [];
+
+        // 初始化所有节点，确保 children 数组存在
+        flatList.forEach(item => {
+            // 简单的深拷贝，防止污染原始数据
+            const node = JSON.parse(JSON.stringify(item));
+            node.children = node.children || []; 
+            if (node.id) {
+                map[node.id] = node;
+            } else {
+                // 如果没有 ID，生成一个临时的（防错）
+                const tempId = 'auto_' + Math.random().toString(36).substr(2, 9);
+                node.id = tempId;
+                map[tempId] = node;
+            }
+        });
+
+        // 2. 组装树
+        flatList.forEach(item => {
+            // 这里我们再次通过 id 从 map 拿对象，保证引用一致性
+            const node = map[item.id || Object.keys(map).find(k => map[k].type === item.type && map[k].props === item.props)]; 
+            
+            if (item.parentId && map[item.parentId]) {
+                // 如果有父节点，加入父节点的 children
+                map[item.parentId].children.push(node);
+            } else {
+                // 没有 parentId (或找不到父节点)，视为根节点
+                roots.push(node);
+            }
+        });
+
+        return roots;
+    },
+
     resetForm() {
       // 定义递归函数：遍历所有层级寻找表单项
       const traverseAndReset = (items) => {
