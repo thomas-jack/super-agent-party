@@ -1,16 +1,27 @@
 {
-  "name": "Super-Agent-Party",
-  "image": "ailm32442/super-agent-party:latest",
-  "postStartCommand": ".venv/bin/python server.py --host 0.0.0.0 --port 3456",
+  "name": "Super Agent Party Dev",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // 让 VS Code 自动识别 Dockerfile 里装好的 Python 环境
+        "python.defaultInterpreterPath": "/app/.venv/bin/python"
+      },
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  },
   "forwardPorts": [3456],
   "portsAttributes": {
     "3456": {
-      "label": "Super-Agent",
-      "onAutoForward": "openBrowser"
+      "label": "Super Agent Party App",
+      "onAutoForward": "notify"
     }
   },
-  "mounts": [
-    "source=codespaces-linux,target=/app/data,type=volume"
-  ],
-  "remoteUser": "root"
+  // 关键点：这一行让 Codespaces 启动后自动运行你的服务
+  "postAttachCommand": "/app/.venv/bin/python server.py --host 0.0.0.0 --port 3456"
 }
