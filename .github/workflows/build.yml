@@ -43,19 +43,6 @@ jobs:
           uv add pyinstaller
           uv run pyinstaller server.spec
 
-      - name: Fontend Install Node.js dependencies
-        shell: bash
-        run: |
-          cd static
-          npm install
-          cd ..
-
-      - name: Copy node_modules to dist/server/_internal
-        shell: bash
-        run: |
-          mkdir -p dist/server/_internal/static/node_modules
-          cp -r static/node_modules/* dist/server/_internal/static/node_modules/
-
       - name: Build and Publish Electron app
         shell: bash
         run: |
