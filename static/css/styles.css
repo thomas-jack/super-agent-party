@@ -5347,3 +5347,104 @@ body {
 .a2ui-tts-block:hover .tts-action-hint {
   opacity: 1;
 }
+
+/* --- 脚注样式修正 --- */
+
+/* 1. 针对正文右上角的引用链接 */
+.footnote-ref a {
+    /* 强制重置样式，清除可能的背景图或边框 */
+    text-decoration: none !important;
+    background: #eee !important; /* 浅灰背景 */
+    border: none !important;
+    outline: none !important;
+    
+    /* 核心：固定宽高 + Flex 居中 = 完美圆形 */
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 16px !important;    /* 强制宽度 */
+    height: 16px !important;   /* 强制高度 */
+    border-radius: 50% !important;
+    
+    /* 文字样式 */
+    color: #555 !important;
+    font-size: 10px !important;
+    font-weight: 700;
+    line-height: 1 !important; /* 防止行高撑开 */
+    padding: 0 !important;     /* 清除内边距 */
+    margin: 0 2px;             /* 左右留点缝隙 */
+    
+    /* 动画 */
+    transition: all 0.2s ease;
+}
+
+/* 2. 核心修复：屏蔽伪元素产生的“链接图标” */
+/* 大多数全局链接图标是通过 ::after 或 ::before 添加的 */
+.footnote-ref a::after,
+.footnote-ref a::before {
+    content: none !important;
+    display: none !important;
+    width: 0 !important;
+    margin: 0 !important;
+}
+
+/* 3. 如果图标是作为子元素 <i> 存在的，也隐藏它 */
+.footnote-ref a i,
+.footnote-ref a svg {
+    display: none !important;
+}
+
+/* 4. 悬停高亮 */
+.footnote-ref a:hover {
+    background-color: var(--el-color-primary) !important;
+    color: #fff !important;
+    transform: scale(1.1);
+}
+
+/* 调整 sup 标签位置，让圆圈跟文字对齐稍微舒服点 */
+sup.footnote-ref {
+    top: -0.6em;
+    font-size: 100%; /* 防止sup再次缩小字体 */
+}
+
+/* 隐藏插件默认生成的分割线 */
+hr.footnotes-sep {
+    display: none !important;
+}
+
+/* 确保底部脚注区域只有一个上边框 */
+.footnotes {
+    margin-top: 0px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0; /* 这里保留你自己想要的分割线 */
+    color: #666;
+    font-size: 0.9em;
+}
+
+.footnote-backref {
+    text-decoration: none !important; /* 去掉下划线 */
+    border: none !important;          /* 去掉可能的边框 */
+    margin-left: 4px;                 /* 与文字隔开一点距离 */
+    color: #409eff;                   /* 设置为你想要的主题色 */
+    font-family: sans-serif;          /* 确保符号显示正常 */
+}
+
+/* 核心：隐藏该链接自动附加的图标 (伪元素) */
+.footnote-backref::after,
+.footnote-backref::before {
+    content: none !important;
+    display: none !important;
+    width: 0 !important;
+}
+
+/* 防御性代码：如果图标是通过内部 i/svg 标签实现的，也隐藏掉 */
+.footnote-backref i,
+.footnote-backref svg {
+    display: none !important;
+}
+
+/* 鼠标悬停效果 */
+.footnote-backref:hover {
+    color: var(--el-color-primary) !important;
+    cursor: pointer;
+}

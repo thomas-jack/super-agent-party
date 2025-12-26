@@ -37,6 +37,16 @@ const md = window.markdownit({
 }
 });
 
+if (window.markdownitFootnote) {
+    md.use(window.markdownitFootnote);
+    
+    // 【新增】覆盖默认的脚注渲染规则，只返回数字，去掉方括号 []
+    md.renderer.rules.footnote_caption = (tokens, idx) => {
+        var n = Number(tokens[idx].meta.id + 1).toString();
+        return n;
+    };
+}
+
 if (window.markdownitTaskLists) {
     md.use(window.markdownitTaskLists, {
         enabled: true,   // 渲染为 <input type="checkbox">
@@ -590,12 +600,26 @@ let vue_methods = {
       // 处理链接标签
       const links = tempDiv.getElementsByTagName('a');
       for (const link of links) {
+        // 【新增】检测是否为脚注相关的链接
+        // 1. footnote-ref: 正文中的上标数字 (通常包裹在 sup 中，或自身带有该类)
+        // 2. footnote-backref: 底部列表跳回正文的箭头
+        const isFootnoteRef = link.parentElement && link.parentElement.classList.contains('footnote-ref');
+        const isFootnoteBack = link.classList.contains('footnote-backref');
+
+        if (isFootnoteRef || isFootnoteBack) {
+          // 如果是脚注，不做任何文件路径处理，也不强制新窗口打开
+          // 它们只需要能在当前页面锚点跳转即可
+          continue; 
+        }
+
+        // --- 下面是原本的普通链接处理逻辑 ---
         const originalHref = link.getAttribute('href');
         if (originalHref) {
           link.setAttribute('href', this.formatFileUrl(originalHref));
         }
         link.setAttribute('target', '_blank');
       }
+      
       return tempDiv.innerHTML;
     },
     copyLink(uniqueFilename) {
