@@ -36,16 +36,6 @@
 
 - ✅ 全平台兼容适配：覆盖Windows/macOS/Linux原生运行环境，支持Docker容器化部署与Web端云服务，满足多场景技术栈需求。
 
-### 源码部署
-
-  ```shell
-  git clone https://github.com/heshengtao/super-agent-party.git
-  cd super-agent-party
-  uv sync
-  npm install
-  npm run dev
-  ```
-
 ## 软件截图
 
 ### 多服务商支持：本地部署引擎(ollama/dify等等)以及云服务商接口均支持
@@ -156,6 +146,16 @@
 - 开箱即用：访问http://localhost:3456/
 
 - API key管理： 访问http://localhost:3456/token.html
+
+### 源码部署
+
+  ```shell
+  git clone https://github.com/heshengtao/super-agent-party.git
+  cd super-agent-party
+  uv sync
+  npm install
+  npm run dev
+  ```
 
 ## 扩展
 
