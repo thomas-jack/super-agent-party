@@ -36,6 +36,32 @@
 
 - ✅ Compatible and adaptable across all platforms: It covers the native running environments of Windows/macOS/Linux, supports Docker containerized deployment and web-based cloud services, and meets the needs of multi-scene technology stacks.
 
+## Software Screenshots
+
+### Multi-Service Provider Support: Supports both locally deployed engines (e.g., Ollama, Dify) and cloud service provider APIs.
+![image](doc/image/1.jpeg)
+
+### Extensive Tool Integration: Built-in various tools (e.g., knowledge base, web search, smart home control, browser automation), supporting asynchronous invocation without blocking agent responses.
+![image](doc/image/2.jpeg)
+
+### VRM Desktop Pet: Supports uploading custom VRM models to create a personalized desktop companion.
+![image](doc/image/3.jpeg)
+
+### Extension System: Supports installing extensions and creating new ones. The image below shows a galgame extension.  
+![image](doc/image/4.jpeg)
+
+### Tavern Character Cards: Supports Tavern character cards with long-term memory capabilities.
+![image](doc/image/5.jpeg)
+
+### Social platform bots: Support one-click deployment to QQ, Lark, Telegram, Discord.
+![image](doc/image/6.jpeg)
+
+### Live Streaming Bot: Supports One-Click Deployment to Bilibili, YouTube, and Twitch
+![image](doc/image/7.jpeg)
+
+### Developer-Friendly: Provides open OpenAI API and MCP interfaces, allowing the agent to be exposed externally.
+![image](doc/image/8.jpeg)
+
 ## Quick Start
 
 ### Cloud disk download
@@ -48,13 +74,13 @@
 
   👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.4/super-agent-party-win-v0.3.4.7z)
 
-⭐ Note!  You can double-click `一键更新(update).bat` to update the software, or you can double-click `一键启动(start).bat` to start the software.
+⭐ Note!  You can double-click `一键更新(update).bat` to update the software, or you can double-click `一键启动(start).bat` to start the software.The operating system must be **Windows 10/11, Windows Server 2025**, or a later version!
 
 ### Windows Desktop Installation
 
   👉 [Click to download](https://github.com/heshengtao/super-agent-party/releases/download/v0.3.4/Super-Agent-Party-Setup-0.3.4.exe)
 
-⭐ Note! Choose to install only for the current user during installation, otherwise, administrator privileges will be required to start.
+⭐ Note! Choose to install only for the current user during installation, otherwise, administrator privileges will be required to start.The operating system must be **Windows 10/11, Windows Server 2025**, or a later version!
 
 ### macOS portable package (Currently only M chips are supported, developer-oriented, no-install source version, one-click sync to latest repo, no need to wait for desktop build)
 
@@ -130,32 +156,6 @@ We provide two mainstream Linux installation package formats for your convenienc
   npm install
   npm run dev
   ```
-
-## Software Screenshots
-
-### Multi-Service Provider Support: Supports both locally deployed engines (e.g., Ollama, Dify) and cloud service provider APIs.
-![image](doc/image/1.jpeg)
-
-### Extensive Tool Integration: Built-in various tools (e.g., knowledge base, web search, smart home control, browser automation), supporting asynchronous invocation without blocking agent responses.
-![image](doc/image/2.jpeg)
-
-### VRM Desktop Pet: Supports uploading custom VRM models to create a personalized desktop companion.
-![image](doc/image/3.jpeg)
-
-### Extension System: Supports installing extensions and creating new ones. The image below shows a galgame extension.  
-![image](doc/image/4.jpeg)
-
-### Tavern Character Cards: Supports Tavern character cards with long-term memory capabilities.
-![image](doc/image/5.jpeg)
-
-### Social platform bots: Support one-click deployment to QQ, Lark, Telegram, Discord.
-![image](doc/image/6.jpeg)
-
-### Live Streaming Bot: Supports One-Click Deployment to Bilibili, YouTube, and Twitch
-![image](doc/image/7.jpeg)
-
-### Developer-Friendly: Provides open OpenAI API and MCP interfaces, allowing the agent to be exposed externally.
-![image](doc/image/8.jpeg)
 
 ## Extension
 
