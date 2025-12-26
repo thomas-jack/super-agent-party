@@ -372,7 +372,7 @@ kb_tool = {
     "type": "function",
     "function": {
         "name": "query_knowledge_base",
-        "description": f"通过自然语言获取的对应ID的知识库信息。回答时，在回答的最下方给出信息来源。以链接的形式给出信息来源，格式为：[file_name](file_path)。file_path可以是外部资源，也可以是127.0.0.1上的资源。返回链接时，不要让()内出现空格",
+        "description": f"通过自然语言获取的对应ID的知识库信息。回答时，在回答的最下方给出信息来源。以链接的形式给出信息来源，格式为：[file_name](file_path)。file_path可以是外部资源，也可以是127.0.0.1上的资源。返回链接时，不要让()内出现空格。如果需要实现引用位置到跳转脚注链接的功能，请用句末用`[^1]`加脚注用`[^1]: [file_name](file_path)`的markdown语法。",
         "parameters": {
             "type": "object",
             "properties": {
