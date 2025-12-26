@@ -3122,9 +3122,9 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
         kb_list = []
         user_prompt = request.messages[-1]['content']
         if settings["memorySettings"]["is_memory"] and settings["memorySettings"]["selectedMemory"] and settings["memorySettings"]["selectedMemory"] != "":
-            if settings["memorySettings"]["userName"]:
+            if settings["memorySettings"]["userName"] and settings["memorySettings"]["userName"] != "user":
                 print("添加用户名：\n\n" + settings["memorySettings"]["userName"] + "\n\n用户名结束\n\n")
-                content_append(request.messages, 'system', "与你交流的用户名为：\n\n" + settings["memorySettings"]["userName"] + "\n\n")
+                content_append(request.messages, 'system', "当前与你交流的人的名字为：\n\n" + settings["memorySettings"]["userName"] + "\n\n")
             lore_content = ""
             assistant_reply = ""
             # 找出request.messages中上次的assistant回复
