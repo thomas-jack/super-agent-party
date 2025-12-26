@@ -1456,13 +1456,20 @@ async def generate_stream_response(client,reasoner_client, request: ChatRequest,
             if m0:
                 memoryLimit = settings["memorySettings"]["memoryLimit"]
                 try:
-                    relevant_memories = m0.search(query=user_prompt, user_id=memoryId, limit=memoryLimit)
+                    # 【核心修改】：使用 asyncio.to_thread 将同步的 search 方法放入线程池运行
+                    # 这样主线程（Event Loop）会被释放，可以去处理 /minilm/embeddings 请求，从而避免死锁
+                    relevant_memories = await asyncio.to_thread(
+                        m0.search, 
+                        query=user_prompt, 
+                        user_id=memoryId, 
+                        limit=memoryLimit
+                    )
                     relevant_memories = json.dumps(relevant_memories, ensure_ascii=False)
                 except Exception as e:
                     print("m0.search error:",e)
                     relevant_memories = ""
                 print("添加相关记忆：\n\n" + relevant_memories + "\n\n相关结束\n\n")
-                content_append(request.messages, 'system', "之前的相关记忆：\n\n" + relevant_memories + "\n\n相关结束\n\n")                    
+                content_append(request.messages, 'system', "之前的相关记忆：\n\n" + relevant_memories + "\n\n相关结束\n\n")                   
         request = await tools_change_messages(request, settings)
         chat_vendor = 'OpenAI'
         reasoner_vendor = 'OpenAI'
@@ -3184,13 +3191,20 @@ async def generate_complete_response(client,reasoner_client, request: ChatReques
             if m0:
                 memoryLimit = settings["memorySettings"]["memoryLimit"]
                 try:
-                    relevant_memories = m0.search(query=user_prompt, user_id=memoryId, limit=memoryLimit)
+                    # 【核心修改】：使用 asyncio.to_thread 将同步的 search 方法放入线程池运行
+                    # 这样主线程（Event Loop）会被释放，可以去处理 /minilm/embeddings 请求，从而避免死锁
+                    relevant_memories = await asyncio.to_thread(
+                        m0.search, 
+                        query=user_prompt, 
+                        user_id=memoryId, 
+                        limit=memoryLimit
+                    )
                     relevant_memories = json.dumps(relevant_memories, ensure_ascii=False)
                 except Exception as e:
                     print("m0.search error:",e)
                     relevant_memories = ""
                 print("添加相关记忆：\n\n" + relevant_memories + "\n\n相关结束\n\n")
-                content_append(request.messages, 'system', "之前的相关记忆：\n\n" + relevant_memories + "\n\n相关结束\n\n")     
+                content_append(request.messages, 'system', "之前的相关记忆：\n\n" + relevant_memories + "\n\n相关结束\n\n") 
         if settings["knowledgeBases"]:
             for kb in settings["knowledgeBases"]:
                 if kb["enabled"] and kb["processingStatus"] == "completed":
